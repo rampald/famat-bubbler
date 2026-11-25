@@ -1,95 +1,574 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>FAMAT Scantrons - Quick print</title>
-  <link rel="stylesheet" href="quick.css">
-  <script src="vendor/jspdf.umd.min.js"></script>
-  <script>
-    window.FAMAT_PDFJS_PATHS = Object.freeze({ library: "./vendor/pdf.mjs", worker: "./vendor/pdf.worker.mjs" });
-  </script>
-  <script type="module" src="src/quick.js"></script>
-</head>
-<body>
-  <header>
-    <img src="assets/famat-gator-orange-blue.png" alt="" class="logo">
-    <div>
-      <h1>FAMAT Scantrons</h1>
-      <p class="sub">Paste your roster, check the list, print.</p>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#0f2942">
+    <meta
+      name="description"
+      content="Build reviewed Regional, Invitational, State, National, or custom competition scantron packets from registration rosters."
+    >
+    <title>FAMAT &amp; Mu Alpha Theta Scantron Builder</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+
+  <body>
+    <a class="skip-link" href="#main-content">Skip to scantron builder</a>
+    <div
+      class="visually-hidden"
+      id="app-announcer"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+    ></div>
+
+    <header class="site-header">
+      <div class="header-inner">
+        <div class="brand-block">
+          <img
+            class="brand-logo"
+            id="famat-brand-logo"
+            src="assets/famat-gator-orange-blue.png"
+            width="2020"
+            height="778"
+            alt="FAMAT"
+          >
+          <p class="eyebrow" id="profile-eyebrow">FAMAT State Convention</p>
+          <h1>Scantron Builder</h1>
+          <p class="header-summary">
+            Import registrations, review every assignment, and download one
+            print-ready answer sheet for each test.
+          </p>
+        </div>
+
+        <button
+          class="button button-secondary button-on-dark"
+          id="catalog-settings"
+          type="button"
+          aria-haspopup="dialog"
+          aria-controls="catalog-dialog"
+        >
+          Review test codes
+        </button>
+      </div>
+
+      <nav class="step-navigation" aria-label="Scantron builder progress">
+        <ol>
+          <li><a href="#import-section"><span aria-hidden="true">1</span>Import</a></li>
+          <li><a href="#review-section"><span aria-hidden="true">2</span>Review</a></li>
+          <li><a href="#download-section"><span aria-hidden="true">3</span>Download</a></li>
+        </ol>
+      </nav>
+    </header>
+
+    <div class="context-bar">
+      <div class="context-grid">
+        <section class="notice notice-warning" aria-labelledby="catalog-status-title">
+          <span class="notice-icon" aria-hidden="true">!</span>
+          <div>
+            <h2 id="catalog-status-title">2027 State catalog requires final code review</h2>
+            <p id="catalog-status-copy">
+              The State event list, ID rules, and scorer codes are loaded from the
+              current State packet. <strong>Chi is included as the additional
+              middle-school division, using State-ID digit 9 and Individual code 291.</strong>
+              Review the full catalog before production printing.
+            </p>
+          </div>
+        </section>
+
+        <section class="notice notice-privacy" aria-labelledby="privacy-title">
+          <span class="notice-icon" aria-hidden="true">✓</span>
+          <div>
+            <h2 id="privacy-title">Student data stays on this device</h2>
+            <p>
+              Files and pasted rosters are processed locally in this browser.
+              Nothing is uploaded, and no roster is stored after this page closes.
+            </p>
+          </div>
+        </section>
+      </div>
     </div>
-    <a class="full" href="builder.html">Full builder (State, Regional, National, Custom)</a>
-  </header>
 
-  <main>
-    <section class="card">
-      <div class="row">
-        <label>Competition
-          <select id="preset"></select>
-        </label>
-        <label class="grow">School name
-          <input id="school" placeholder="Filled in from the roster">
-        </label>
-      </div>
-      <div id="schoolPick" class="warn pickschool" hidden>
-        <span>The roster says a different school. Which name goes on the scantrons?</span>
-        <button id="schoolUseRoster" type="button"></button>
-        <button id="schoolKeep" type="button"></button>
-      </div>
-    </section>
+    <noscript>
+      <p class="noscript-message">
+        This builder requires JavaScript to validate registration data and create PDFs.
+      </p>
+    </noscript>
 
-    <section class="card">
-      <h2>1. Paste your famat.org roster</h2>
-      <p class="hint">Copy the roster page or the Students page from famat.org (or open the roster PDF) and paste it all here, header lines included. You can paste the high school and middle school rosters together. A CSV with Name and ID also works.</p>
-      <textarea id="roster" rows="8" spellcheck="false" placeholder="Roster: Your School #1234&#10;Student Division Team 1 ID Team 2 ID No Team ID&#10;Last, First Geometry 1234 001 21 1234 001 22 1234 001 20"></textarea>
-      <div class="row">
-        <label class="file">Or open a file <input id="rosterFile" type="file" accept=".pdf,.csv,.tsv,.txt"></label>
-        <button id="read" class="primary">Read roster</button>
-        <button id="addRow" type="button" class="add">Add a student by hand</button>
-      </div>
-      <p id="readStatus" class="status" role="status"></p>
-      <details id="lastYearBox">
-        <summary id="lastYearSummary">Optional: last year's roster</summary>
-        <p class="hint" id="lastYearHint"></p>
-        <textarea id="lastYear" rows="4" spellcheck="false"></textarea>
-        <label class="file">Or open last year's file <input id="lastYearFile" type="file" accept=".pdf,.csv,.tsv,.txt"></label>
-      </details>
-    </section>
+    <main class="page-shell" id="main-content">
+      <section class="workflow-panel" id="import-section" aria-labelledby="import-title">
+        <div class="section-heading">
+          <div class="step-number" aria-hidden="true">1</div>
+          <div>
+            <p class="section-kicker">Import</p>
+            <h2 id="import-title">Add school and registration data</h2>
+            <p>
+              Upload an export or paste rows copied from Excel or Google Sheets.
+              You can review and correct every value before creating the PDF.
+            </p>
+          </div>
+        </div>
 
-    <section class="card" id="reviewCard" hidden>
-      <h2>2. Check the list</h2>
-      <div id="summary" class="chips"></div>
-      <p id="needs" class="warn" hidden></p>
-      <div id="topics" class="topics" hidden>
-        <h3>Topic tests</h3>
-        <p class="hint">Pick each division's topic test once, or leave "Name and ID only" so students bubble the test code at the test.</p>
-        <div id="topicGrid"></div>
-      </div>
-      <div id="bulk" class="bulk" hidden>
-        <b id="bulkCount"></b>
-        <select id="bulkTest" aria-label="Set test for selected"></select>
-        <button id="bulkOut" type="button">Leave out</button>
-        <button id="bulkIn" type="button">Put back</button>
-        <button id="bulkDelete" type="button" class="danger">Delete</button>
-        <button id="bulkClear" type="button" class="link">Clear</button>
-      </div>
-      <p class="hint tip">Tick students to change or delete several at once. Shift-click to tick a range.</p>
-      <div class="tablewrap">
-        <table>
-          <thead><tr><th class="pick"><input type="checkbox" id="pickAll" aria-label="Select all"></th><th>Name</th><th>FAMAT ID</th><th>Test</th><th>Delete</th></tr></thead>
-          <tbody id="rows"></tbody>
-        </table>
-      </div>
-    </section>
+        <div class="field-group field-group-narrow">
+          <label for="convention-profile">Convention <span aria-hidden="true">*</span></label>
+          <select id="convention-profile" name="convention-profile" required>
+            <option value="regional">FAMAT Regional / Invitational</option>
+            <option value="state" selected>FAMAT State Convention 2027</option>
+            <option value="national">Mu Alpha Theta National Convention 2027</option>
+            <option value="custom">Custom competition</option>
+            <option value="hnd">Hiller / Nunn / Dostal</option>
+          </select>
+          <p class="field-help" id="convention-profile-help">
+            Choose Regional / Invitational, State Convention, National Convention, or Custom.
+          </p>
+        </div>
 
-    <section class="card" id="printCard" hidden>
-      <h2>3. Print</h2>
-      <button id="make" class="primary big">Make scantrons</button>
-      <p id="printNote" class="hint"></p>
-      <p class="hint">Print at Actual size (100%), single-sided, on a good laser printer. Check that the corner marks and bubbles print dark before printing the whole stack.</p>
-      <p id="status" class="status" role="status"></p>
-    </section>
-  </main>
-  <footer>All roster processing happens on this computer. Nothing is uploaded.</footer>
-</body>
+        <div class="field-group field-group-narrow" id="custom-event-name-field" hidden>
+          <label for="custom-event-name" id="tournament-name-label">Tournament name <span aria-hidden="true">*</span></label>
+          <input
+            id="custom-event-name"
+            name="custom-event-name"
+            type="text"
+            maxlength="100"
+            autocomplete="organization-title"
+            placeholder="Example: Broward Regional 2027"
+          >
+          <p class="field-help" id="tournament-name-help">
+            This name is used in the downloaded PDF title and filename.
+          </p>
+          <p class="field-error" id="custom-event-name-error" hidden></p>
+        </div>
+
+        <div class="field-group field-group-narrow">
+          <label for="school-name">Default full school name</label>
+          <input
+            id="school-name"
+            name="school-name"
+            type="text"
+            autocomplete="organization"
+            maxlength="80"
+            aria-describedby="school-name-help"
+          >
+          <p class="field-help" id="school-name-help">
+            Enter the name exactly as it should print. It is required unless every imported row supplies a school name; row-level school values take precedence.
+          </p>
+          <p class="field-error" id="school-name-error" hidden></p>
+        </div>
+
+        <div class="import-grid">
+          <div class="field-group file-field">
+            <label for="import-file">Choose a registration file</label>
+            <input
+              id="import-file"
+              name="import-file"
+              type="file"
+              multiple
+              accept=".csv,.tsv,.txt,.pdf,text/csv,text/tab-separated-values,text/plain,application/pdf"
+              aria-describedby="import-file-help"
+            >
+            <p class="field-help" id="import-file-help">
+              Select one file or a batch of CSV, TSV, TXT, and registration PDF files. PDF import
+              requires the bundled PDF reader; paste or CSV remains available if it cannot load.
+            </p>
+          </div>
+
+          <div class="import-divider" aria-hidden="true"><span>or</span></div>
+
+          <div class="field-group paste-field">
+            <label for="import-text">Paste registration rows</label>
+            <textarea
+              id="import-text"
+              name="import-text"
+              rows="9"
+              spellcheck="false"
+              aria-describedby="import-text-help"
+              placeholder="Student Name&#9;Student ID&#9;Individual&#9;Round 1&#9;Round 2"
+            ></textarea>
+            <p class="field-help" id="import-text-help">
+              Include one student per row and keep the header row when copying from a spreadsheet.
+            </p>
+          </div>
+        </div>
+
+        <details class="schema-help" id="import-schema-help" open>
+          <summary>How to format an upload — exact columns and example</summary>
+          <div class="schema-content">
+            <h3 id="format-profile-title">State Convention file format</h3>
+            <p id="schema-requirements-copy">
+              Provide <strong>Student Name</strong> and the nine-digit
+              <strong>No Team State ID</strong>, then the student's
+              <strong>Individual</strong>, <strong>Round 1</strong>, and
+              <strong>Round 2</strong> tests. All three test assignments are required
+              for every attendee.
+            </p>
+            <ol class="format-rules">
+              <li>
+                <strong>Put the column names in the first row</strong> and use one
+                student per row. CSV, tab-separated text, and rows copied from a
+                spreadsheet are accepted.
+              </li>
+              <li id="id-format-rule">
+                <strong>Keep every Student ID as exactly nine digits.</strong> It
+                must be the No Team ID ending in <strong>0</strong>. In Excel or
+                Google Sheets, format the ID column as plain text so a leading zero
+                is not removed.
+              </li>
+              <li>
+                <strong>Use an event's full name or its three-digit code</strong>
+                exactly as shown in the event catalog and code editor. The importer
+                stops on unknown or ambiguous event names.
+              </li>
+              <li id="metadata-format-rule">
+                <strong>School and School Code are optional; State Division and Topic Eligibility Level are required.</strong>
+                Use <strong>School</strong> when one file contains more than one
+                school; otherwise the default school name above is used. A supplied
+                four-digit School Code must match the first four digits of the Student ID.
+              </li>
+              <li id="assignment-format-rule">
+                <strong>Put quotation marks around a name containing a comma</strong>,
+                for example <code>"Rivera, Ana"</code>. Leave unused optional-event
+                cells empty; do not enter dashes or “N/A.”
+              </li>
+              <li>
+                <strong>PDFs must contain selectable text.</strong> A scanned image
+                or photo-only PDF cannot be read and will be blocked instead of
+                silently skipped.
+              </li>
+            </ol>
+            <p class="accepted-columns" id="accepted-columns-copy">
+              <strong>Accepted header row:</strong> School, School Code, Student
+              Name, Student ID, Division, Individual, Round 1, Round 2
+            </p>
+            <p class="example-label"><strong>Copyable CSV example:</strong></p>
+            <div class="code-sample" id="import-code-sample" role="region" aria-label="Example import data" tabindex="0">
+              <code>School,School Code,Student Name,Student ID,Division,Individual,Round 1,Round 2<br>Sample Academy,1234,Jordan Lee,123400240,Alpha,Alpha Individual,Trigonometry (Alpha),Complex Numbers (Alpha)</code>
+            </div>
+            <p id="schema-profile-note">
+              Header capitalization and common variants such as State ID are
+              accepted. Extra columns are reported, and any column or event name
+              the program cannot recognize is flagged for review.
+            </p>
+            <div class="template-downloads" aria-label="Sample registration templates">
+              <span class="template-downloads-label">Download a sample template:</span>
+              <a class="template-link" href="samples/regional-invitational-template.csv" download>Regional / Invitational CSV</a>
+              <a class="template-link" href="samples/state-registration-template.csv" download>State CSV</a>
+              <a class="template-link" href="samples/national-registration-template.csv" download>National CSV</a>
+              <a class="template-link" href="samples/custom-famat-event-template.csv" download>Custom event CSV</a>
+              <span class="template-note">Contains fictional students; replace every sample row before printing.</span>
+            </div>
+          </div>
+        </details>
+
+        <div class="button-row import-actions">
+          <button class="button button-quiet" id="sample-button" type="button">
+            Load sample
+          </button>
+          <button class="button button-quiet" id="clear-button" type="button">
+            Clear session
+          </button>
+          <button class="button button-primary" id="import-button" type="button">
+            Import and review
+          </button>
+        </div>
+      </section>
+
+      <section class="workflow-panel" id="review-section" aria-labelledby="review-title">
+        <div class="section-heading section-heading-with-action">
+          <div class="step-number" aria-hidden="true">2</div>
+          <div>
+            <p class="section-kicker">Review</p>
+            <h2 id="review-title">Verify every student and test</h2>
+            <p id="review-requirements-copy">
+              Every student requires Individual, Round 1, and Round 2. Each valid
+              student produces exactly three scantrons. Resolve blocking errors
+              before downloading; warnings identify values worth checking.
+            </p>
+          </div>
+          <button class="button button-secondary" id="add-student-button" type="button">
+            Add student
+          </button>
+        </div>
+
+        <div class="summary-grid" aria-label="Packet summary">
+          <article class="summary-card">
+            <span class="summary-label">Students</span>
+            <output class="summary-value" id="student-count">0</output>
+          </article>
+          <article class="summary-card">
+            <span class="summary-label">Planned scantrons</span>
+            <output class="summary-value" id="page-count">0</output>
+          </article>
+          <article class="summary-card summary-card-error">
+            <span class="summary-label"><span aria-hidden="true">●</span> Errors</span>
+            <output class="summary-value" id="error-count">0</output>
+          </article>
+          <article class="summary-card summary-card-warning">
+            <span class="summary-label"><span aria-hidden="true">▲</span> Warnings</span>
+            <output class="summary-value" id="warning-count">0</output>
+          </article>
+        </div>
+
+        <div
+          class="validation-summary"
+          id="validation-summary"
+          role="status"
+          aria-live="polite"
+          aria-atomic="false"
+          tabindex="-1"
+        >
+          <strong>Ready for data.</strong>
+          <span>Import a registration file, paste rows, or add a student manually.</span>
+        </div>
+
+        <fieldset class="bulk-defaults" id="bulk-defaults">
+          <legend>Check or uncheck a test for several students</legend>
+          <div class="bulk-fields bulk-test-fields">
+            <div class="field-group">
+              <label for="bulk-test">Test</label>
+              <select id="bulk-test" name="bulk-test" aria-describedby="bulk-test-help">
+                <option value="">Choose a test</option>
+              </select>
+            </div>
+            <button class="button button-secondary" id="bulk-add-test" type="button">
+              Check for students
+            </button>
+            <button class="button button-quiet" id="bulk-remove-test" type="button">
+              Uncheck for students
+            </button>
+          </div>
+          <p class="field-help" id="bulk-test-help">
+            Applies to the selected rows, or to every row when none are selected. A test is
+            checked only for students whose ID allows it.
+          </p>
+          <output class="bulk-test-status" id="bulk-test-status" aria-live="polite"></output>
+        </fieldset>
+
+        <div class="row-selection-actions" aria-label="Bulk student row actions">
+          <output id="selected-row-count" aria-live="polite">0 rows selected</output>
+          <button class="button button-secondary" id="delete-selected-rows" type="button" disabled>
+            Delete selected
+          </button>
+          <button class="button button-quiet" id="clear-all-rows" type="button" disabled>
+            Clear all rows
+          </button>
+        </div>
+
+        <p class="mobile-table-note" id="student-table-help">
+          On smaller screens, swipe or use Shift plus the mouse wheel to review all columns.
+        </p>
+        <div
+          class="table-scroll"
+          role="region"
+          aria-label="Editable student registration table"
+          aria-describedby="student-table-help validation-summary"
+          tabindex="0"
+        >
+          <table class="student-table" id="students-table">
+            <caption class="visually-hidden" id="students-caption">
+              Editable students and State Convention test assignments
+            </caption>
+            <thead>
+              <tr>
+                <th class="select-column" scope="col">
+                  <input id="select-all-rows" type="checkbox" aria-label="Select all student rows">
+                </th>
+                <th class="status-column" scope="col">Status</th>
+                <th class="name-column" scope="col">Student name</th>
+                <th class="name-column" scope="col">School override</th>
+                <th class="id-column" id="student-id-heading" scope="col">State ID</th>
+                <th class="id-column" id="previous-ids-heading" scope="col">Previous-year ID(s)</th>
+                <th class="test-column" id="eligibility-heading" scope="col" hidden>Topic level</th>
+                <th class="test-column" id="division-heading" scope="col">Division (from ID)</th>
+                <th class="tests-column" id="tests-heading" scope="col">Tests to print</th>
+                <th class="actions-column" scope="col">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="students-body">
+              <tr class="empty-row">
+                <td colspan="9">
+                  No students yet. Import registration data or choose “Add student.”
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="status-key" aria-label="Status key">
+          <span><span class="status-dot status-ready" aria-hidden="true">✓</span> Ready</span>
+          <span><span class="status-dot status-warning" aria-hidden="true">!</span> Check warning</span>
+          <span><span class="status-dot status-error" aria-hidden="true">×</span> Fix error</span>
+        </div>
+      </section>
+
+      <section class="workflow-panel" id="download-section" aria-labelledby="download-title">
+        <div class="section-heading">
+          <div class="step-number" aria-hidden="true">3</div>
+          <div>
+            <p class="section-kicker">Download</p>
+            <h2 id="download-title">Build the print packet</h2>
+            <p>
+              Confirm page counts, choose a useful packet order, and download a
+              print-ready PDF containing the official answer-sheet background.
+            </p>
+          </div>
+        </div>
+
+        <div class="download-grid">
+          <div>
+            <div class="field-group packet-order-field">
+              <label for="packet-order">Packet order</label>
+              <select id="packet-order" name="packet-order">
+                <option value="student">By student — keep each student's tests together</option>
+                <option value="test">By test — group scantrons for test rooms</option>
+              </select>
+              <p class="field-help">
+                Students are sorted by name within each group.
+              </p>
+            </div>
+
+            <div class="manifest-block">
+              <div class="subsection-heading">
+                <h3>Packet manifest</h3>
+                <p>Counts below must match the generated PDF.</p>
+              </div>
+              <div class="table-scroll compact-table" role="region" aria-label="Packet manifest" tabindex="0">
+                <table>
+                  <thead>
+                    <tr>
+                      <th scope="col">Test</th>
+                      <th scope="col">Code</th>
+                      <th scope="col">Pages</th>
+                    </tr>
+                  </thead>
+                  <tbody id="manifest-body">
+                    <tr class="empty-row">
+                      <td colspan="3">The manifest will appear after valid students are added.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <aside class="print-guidance" id="print-guidance" aria-labelledby="print-guidance-title">
+            <span class="print-icon" aria-hidden="true">▣</span>
+            <div>
+              <h3 id="print-guidance-title">Print at actual size</h3>
+              <ul>
+                <li>Use US Letter paper and print single-sided.</li>
+                <li>Choose <strong>Actual size</strong> or <strong>100%</strong>.</li>
+                <li>Turn off “Fit to page” and browser headers or footers.</li>
+                <li>Print one sample first and verify bubble alignment.</li>
+              </ul>
+            </div>
+          </aside>
+        </div>
+
+        <div class="generation-footer">
+          <p class="generation-status" id="generation-status" role="status" aria-live="polite">
+            Import and validate registrations to enable PDF generation.
+          </p>
+          <button
+            class="button button-primary button-large"
+            id="generate-button"
+            type="button"
+            aria-describedby="generation-status print-guidance"
+            disabled
+          >
+            Generate scantron PDF
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p id="footer-review-copy">
+        Review the draft catalog against official FAMAT convention instructions
+        before production printing.
+      </p>
+    </footer>
+
+    <dialog class="catalog-dialog" id="catalog-dialog" aria-labelledby="catalog-dialog-title">
+      <form class="dialog-card" id="catalog-form" novalidate>
+        <header class="dialog-header">
+          <div>
+            <p class="section-kicker">Operational settings</p>
+            <h2 id="catalog-dialog-title">Review 2027 State test codes</h2>
+          </div>
+          <button class="icon-button" type="button" data-dialog-action="cancel" aria-label="Close test-code settings">
+            <span aria-hidden="true">×</span>
+          </button>
+        </header>
+
+        <div class="notice notice-warning dialog-warning" role="note">
+          <span class="notice-icon" aria-hidden="true">!</span>
+          <div>
+            <h3>Current State catalog</h3>
+            <p id="catalog-dialog-warning-copy">
+              Confirm every code against the final convention list. The reviewed
+              current State packet assigns Chi Individual code 291 and State-ID digit 9.
+            </p>
+          </div>
+        </div>
+
+        <div class="catalog-editor" aria-describedby="catalog-editor-help">
+          <p id="catalog-editor-help">
+            Codes print on every generated sheet. Operational codes must contain
+            three unique digits. Edit a State code only after a reviewed change to
+            the convention list.
+          </p>
+          <div class="form-error" id="catalog-error" role="alert" hidden></div>
+
+          <div class="table-scroll catalog-table" role="region" aria-label="Editable test code catalog" tabindex="0">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Event name</th>
+                  <th scope="col">Round</th>
+                  <th scope="col">Division / level</th>
+                  <th scope="col">Eligible divisions</th>
+                  <th scope="col">Printed code</th>
+                  <th scope="col">Scantron</th>
+                  <th scope="col">Use</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Action</th>
+                </tr>
+              </thead>
+              <tbody id="catalog-body">
+                <tr class="empty-row">
+                  <td colspan="9">Loading the local event catalog…</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="button-row catalog-add-row">
+            <button class="button button-secondary" id="catalog-add-event" type="button">
+              Add event
+            </button>
+          </div>
+
+        </div>
+
+        <footer class="dialog-actions">
+          <button class="button button-quiet" id="catalog-reset-button" type="button">
+            Restore draft values
+          </button>
+          <button class="button button-secondary" type="button" data-dialog-action="cancel">Cancel</button>
+          <button class="button button-primary" id="catalog-save-button" type="submit">
+            Use reviewed codes
+          </button>
+        </footer>
+      </form>
+    </dialog>
+
+    <script src="vendor/jspdf.umd.min.js"></script>
+    <script>
+      window.FAMAT_PDFJS_PATHS = Object.freeze({
+        library: "./vendor/pdf.mjs",
+        worker: "./vendor/pdf.worker.mjs"
+      });
+    </script>
+    <script type="module" src="src/app.js"></script>
+  </body>
 </html>

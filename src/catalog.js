@@ -552,6 +552,45 @@ const regionalCatalog = [
 export const REGIONAL_TEST_CATALOG = Object.freeze(regionalCatalog.map(freezeTest));
 export const CUSTOM_TEST_CATALOG = Object.freeze([]);
 
+// Hiller / Nunn / Dostal: one test per student, picked from the FAMAT ID's
+// 8th digit. These sheets print with the test-code boxes left blank.
+function hndTest(id, name, division, sortKey, aliases = []) {
+  return {
+    id: `hnd-${id}`,
+    code: null,
+    blankCode: true,
+    sortKey,
+    name,
+    group: TEST_GROUPS.INDIVIDUAL,
+    division,
+    eventRole: "individual",
+    producesScantron: true,
+    status: "operational",
+    blocking: false,
+    note: "Prints with the test-code boxes left blank.",
+    eligibleDivisions: [division],
+    aliases,
+  };
+}
+
+const hndCatalog = [
+  hndTest("hiller", "Hiller", "hiller", "1"),
+  hndTest("nunn", "Nunn", "nunn", "2"),
+  hndTest("dostal-precalculus", "Dostal - Precalculus", "dostal_precalculus", "3", ["dostal precalc"]),
+  hndTest("dostal-calculus", "Dostal - Calculus", "dostal_calculus", "4", ["dostal calc"]),
+];
+
+export const HND_TEST_CATALOG = Object.freeze(hndCatalog.map(freezeTest));
+
+export const HND_CATALOG_METADATA = Object.freeze({
+  name: "Hiller / Nunn / Dostal tests",
+  conventionYear: null,
+  mappingBasis: "FAMAT ID 8th digit: 1 Hiller, 2-3 Nunn, 4 Dostal - Precalculus, 5 Dostal - Calculus, 6 either Dostal test",
+  status: "Four tests loaded; test codes print blank",
+  sourceDescription: "Hiller, Nunn, and Dostal tests",
+  pendingItems: Object.freeze([]),
+});
+
 export const REGIONAL_CATALOG_METADATA = Object.freeze({
   name: "FAMAT Regional / Invitational event catalog",
   conventionYear: null,
@@ -682,6 +721,22 @@ export const CONVENTION_PROFILES = Object.freeze({
     enforceIndividualDivision: false,
     filenamePrefix: "FAMAT-Custom-Scantrons",
   }),
+  hnd: freezeProfile({
+    id: "hnd",
+    label: "Hiller / Nunn / Dostal",
+    shortLabel: "Hiller / Nunn / Dostal",
+    year: null,
+    catalog: HND_TEST_CATALOG,
+    catalogMetadata: HND_CATALOG_METADATA,
+    assignments: [
+      { field: "individualTest", group: TEST_GROUPS.INDIVIDUAL, label: "Test", derived: true },
+    ],
+    workflow: "division-individual",
+    divisionScheme: "hnd",
+    inferIndividualFromDivision: true,
+    enforceIndividualDivision: true,
+    filenamePrefix: "FAMAT-Scantrons",
+  }),
 });
 
 export const DEFAULT_PROFILE_ID = "state";
@@ -699,6 +754,10 @@ const DIVISION_VALUES = new Set([
   "statistics",
   "open",
   "all",
+  "hiller",
+  "nunn",
+  "dostal_precalculus",
+  "dostal_calculus",
   ...Object.keys(REGIONAL_DIVISION_DIGITS),
 ]);
 
@@ -786,6 +845,7 @@ export function catalogFromEditableEntries(entries, { baseCatalog = [] } = {}) {
       codeOwners.set(code, id);
     }
 
+    const blankCode = code === null && (entry.blankCode ?? base?.blankCode) === true;
     return freezeTest({
       ...base,
       ...entry,
@@ -799,8 +859,9 @@ export function catalogFromEditableEntries(entries, { baseCatalog = [] } = {}) {
       producesScantron,
       idDigit,
       eligibleDivisions,
-      status: code === null ? "pending" : "operational",
-      blocking: code === null,
+      blankCode,
+      status: code === null && !blankCode ? "pending" : "operational",
+      blocking: code === null && !blankCode,
       aliases: entry.aliases ?? base?.aliases ?? [],
       note:
         entry.note ??
@@ -944,7 +1005,7 @@ export function resolveTestReference(value, expectedGroup = null, catalog = TEST
   if (matches.length > 1) return { status: "ambiguous", raw, matches };
 
   const test = matches[0];
-  if (test.status === "pending" || test.code === null || test.blocking) {
+  if (test.status === "pending" || (test.code === null && test.blankCode !== true) || test.blocking) {
     return { status: "pending", raw, test, matches };
   }
   return { status: "resolved", raw, test, matches };
@@ -1025,8 +1086,25 @@ function profileId(profile) {
   return profile?.id ?? DEFAULT_PROFILE_ID;
 }
 
+const HND_DIVISION_ALIASES = new Map([
+  ["hiller", "hiller"],
+  ["nunn", "nunn"],
+  ["dostal precalculus", "dostal_precalculus"],
+  ["dostal pre calculus", "dostal_precalculus"],
+  ["dostal precalc", "dostal_precalculus"],
+  ["dostal calculus", "dostal_calculus"],
+  ["dostal calc", "dostal_calculus"],
+]);
+
+export function normalizeHndDivision(value) {
+  const normalizedReference = normalizeTestReference(value).replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+  return HND_DIVISION_ALIASES.get(normalizedReference) ?? null;
+}
+
 export function normalizeDivisionForProfile(value, profile = CONVENTION_PROFILES.state) {
-  return profileId(profile) === "regional"
+  const id = profileId(profile);
+  if (id === "hnd") return normalizeHndDivision(value);
+  return id === "regional"
     ? normalizeRegionalDivision(value)
     : normalizeDivision(value);
 }

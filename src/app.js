@@ -122,7 +122,7 @@ const state = {
   sourceErrors: [],
   sourceWarnings: [],
   sourceSchoolCode: null,
-  catalogSessions: { regional: null, state: null, national: null, custom: null },
+  catalogSessions: { regional: null, state: null, national: null, custom: null, hnd: null },
   tournamentNameSessions: { regional: "", custom: "" },
   catalog: TEST_CATALOG,
   selectedRowIds: new Set(),
@@ -155,7 +155,7 @@ function usesDivisionField(profile = activeProfile()) {
 
 /** Regional and State read the division from the ID's 8th digit. */
 function idDerivesDivision(profile = activeProfile()) {
-  return profile.id === "regional" || profile.id === "state";
+  return profile.id === "regional" || profile.id === "state" || profile.id === "hnd";
 }
 
 function usesPreviousIds(profile = activeProfile()) {
@@ -172,7 +172,7 @@ function requiresTournamentName(profile = activeProfile()) {
 
 function studentIdLabel(profile = activeProfile()) {
   if (profile.id === "state") return "State ID";
-  if (profile.id === "regional") return "FAMAT ID";
+  if (profile.id === "regional" || profile.id === "hnd") return "FAMAT ID";
   return "Student ID";
 }
 
@@ -275,6 +275,7 @@ function renderProfileChrome() {
   const isRegional = profile.id === "regional";
   const isState = profile.id === "state";
   const isCustom = profile.id === "custom";
+  const isHnd = profile.id === "hnd";
   const isConfigurable = usesConfigurableEventSlots(profile);
   const needsTournamentName = requiresTournamentName(profile);
 
@@ -332,7 +333,12 @@ function renderProfileChrome() {
   dom.formatProfileTitle.textContent = `${profile.shortLabel} file format`;
   let sampleHeader;
   let sampleRow;
-  if (isRegional) {
+  if (isHnd) {
+    dom.schemaRequirementsCopy.textContent =
+      "Required columns are Student Name and Student ID. Previous Year IDs is optional: for a Statistics student, last year's ID decides between Dostal - Precalculus and Dostal - Calculus. Events is optional; leave it blank to print the test for the ID's 8th digit.";
+    sampleHeader = "School,School Code,Student Name,Student ID,Previous Year IDs,Events";
+    sampleRow = "Sample Academy,1234,Jordan Lee,123400110,,";
+  } else if (isRegional) {
     dom.schemaRequirementsCopy.textContent =
       "Required columns are Student Name and Student ID. Previous Year IDs is optional: list last year's FAMAT ID(s) to apply the Sponsors' Guide one-year and no-testing-down rules. Events lists the tests to print, separated by semicolons; leave it blank to print the Individual for the ID's division.";
     sampleHeader = "School,School Code,Student Name,Student ID,Previous Year IDs,Events";
@@ -386,7 +392,7 @@ function renderProfileChrome() {
     : isState
       ? "<strong>Use the nine-digit No Team State ID ending in 0.</strong> Digit 8 is 2/3 for Theta, 4 for Alpha, 5 for Mu/Calculus, 6 for Statistics, or 9 for Chi. Format the column as plain text."
       : "<strong>Keep every Student ID as exactly nine digits.</strong> Format the ID column as plain text so a leading zero is not removed.";
-  dom.metadataFormatRule.innerHTML = isRegional || isState
+  dom.metadataFormatRule.innerHTML = isRegional || isState || isHnd
     ? "<strong>School, School Code, and Previous Year IDs are optional.</strong> Use <strong>School</strong> when one file contains more than one school; otherwise the default school name above is used. A supplied four-digit School Code must match the first four Student ID digits. Separate several previous-year IDs with semicolons."
     : "<strong>School and School Code are optional.</strong> Use <strong>School</strong> when one file contains more than one school; otherwise the default school name above is used. A supplied four-digit School Code must match the first four Student ID digits.";
   dom.assignmentFormatRule.innerHTML =
@@ -407,6 +413,26 @@ function renderProfileChrome() {
       : "The current State packet uses Chi digit 9 and code 291, all four State topic levels, Statistics Individual, and the two topic rounds. Recheck if the packet changes.";
   dom.catalogEditorHelp.textContent =
     "Rename events, change their session or division, restrict eligible divisions, mark whether they use this scantron, deactivate outdated rows, or add events. Codes print on generated sheets: enter exactly three unique digits only after review. Pending checked codes block generation.";
+  if (isHnd) {
+    dom.conventionProfileHelp.textContent =
+      "Hiller / Nunn / Dostal picks each student's test from the FAMAT ID's 8th digit: 1 Hiller, 2 or 3 Nunn, 4 Dostal - Precalculus, 5 Dostal - Calculus. A Statistics student (6) gets Dostal - Calculus if a previous-year ID shows Precalculus or Calculus, otherwise Dostal - Precalculus. Test codes print blank.";
+    dom.catalogStatusTitle.textContent = "Hiller, Nunn, and Dostal tests loaded";
+    dom.catalogStatusCopy.replaceChildren(
+      document.createTextNode("The four tests are Hiller, Nunn, Dostal - Precalculus, and Dostal - Calculus. "),
+      createElement("strong", { text: "The test-code boxes are left blank on every sheet." }),
+    );
+    dom.schemaProfileNote.textContent =
+      "The 8th ID digit picks the test: 1 Hiller, 2 or 3 Nunn, 4 Dostal - Precalculus, 5 Dostal - Calculus, 6 Statistics (either Dostal test). Chi IDs (digit 9) have no test here.";
+    dom.reviewRequirementsCopy.textContent =
+      "Each student takes one test, checked from the FAMAT ID. For a Statistics student, check Dostal - Precalculus or Dostal - Calculus. Each checked test prints one scantron.";
+    dom.idFormatRule.innerHTML =
+      "<strong>Keep each FAMAT ID as exactly nine digits.</strong> Digit 8 picks the test (1 Hiller, 2 or 3 Nunn, 4 Dostal - Precalculus, 5 Dostal - Calculus, 6 Statistics). Format the column as plain text.";
+    dom.assignmentFormatRule.innerHTML =
+      "<strong>The Events column is optional.</strong> Leave it blank to print the test for the ID's 8th digit, or write the test name, for example <code>Dostal - Calculus</code>.";
+    dom.catalogDialogTitle.textContent = "Review Hiller / Nunn / Dostal tests";
+    dom.catalogDialogWarningCopy.textContent =
+      "These four tests print with blank test-code boxes. Enter a three-digit code only if the organizer gives one.";
+  }
   populateBulkTestSelect();
 }
 
@@ -439,7 +465,7 @@ function assignmentLabelForField(field) {
 }
 
 function optionLabel(test) {
-  const code = test.code ?? "pending";
+  const code = test.code ?? (test.blankCode ? "no code" : "pending");
   return `${test.name} — ${code}`;
 }
 
@@ -1254,10 +1280,18 @@ function renderManifest(packet) {
   const counts = new Map();
   for (const job of packet.jobs) {
     const key = `${job.testCode}:${job.testName}`;
-    counts.set(key, { testName: job.testName, testCode: job.testCode, count: (counts.get(key)?.count ?? 0) + 1 });
+    counts.set(key, {
+      testName: job.testName,
+      testCode: job.testCode,
+      testSortKey: job.testSortKey ?? "",
+      count: (counts.get(key)?.count ?? 0) + 1,
+    });
   }
 
-  for (const entry of counts.values()) {
+  const entries = [...counts.values()];
+  // Hiller / Nunn / Dostal lists its tests in that order.
+  if (activeProfile().id === "hnd") entries.sort((left, right) => left.testSortKey.localeCompare(right.testSortKey));
+  for (const entry of entries) {
     const row = createElement("tr");
     appendText(row, "td", entry.testName);
     appendText(row, "td", entry.testCode);
@@ -1657,6 +1691,14 @@ function loadSample() {
       },
     ];
   }
+  if (!samples && profile.id === "hnd") {
+    samples = [
+      { studentName: "Jordan Lee", stateId: "123400110", source: { format: "sample" } },
+      { studentName: "Morgan Rivera", stateId: "123400230", source: { format: "sample" } },
+      { studentName: "Casey Chen", stateId: "123400350", source: { format: "sample" } },
+      { studentName: "Riley Park", stateId: "123400460", previousIds: "123400440", source: { format: "sample" } },
+    ];
+  }
   samples ??= profile.id === "national" ? nationalSamples : stateSamples;
   state.selectedRowIds.clear();
   state.openPickerRowIds.clear();
@@ -1940,6 +1982,14 @@ function appendCatalogEditorRow(test) {
 
     const divisionOptions = activeProfile().id === "regional"
       ? [...REGIONAL_DIVISION_OPTIONS, ["open", "Open / all"]]
+      : activeProfile().id === "hnd"
+      ? [
+        ["hiller", "Hiller"],
+        ["nunn", "Nunn"],
+        ["dostal_precalculus", "Dostal - Precalculus"],
+        ["dostal_calculus", "Dostal - Calculus"],
+        ["open", "Open"],
+      ]
       : activeProfile().id === "national"
       ? [["theta", "Theta"], ["alpha", "Alpha"], ["mu", "Mu"], ["open", "Open"]]
       : [
@@ -2025,6 +2075,8 @@ function appendCatalogEditorRow(test) {
           ? "Excluded — no scantron"
         : test.code
           ? "Code present"
+        : test.blankCode
+          ? "Prints with a blank code"
           : "Pending — assigned pages blocked",
     );
 

@@ -2,8 +2,6 @@
 
 **Use it online:** https://rampald.github.io/famat-bubbler/
 
-The home page is **Quick print**: paste your famat.org roster, check each student's test, and download the scantrons. Everything runs in your browser; the roster is never uploaded. The full builder (State, Regional, National, Custom) is at `builder.html`.
-
 Created and maintained by **Derek Rampal**. Version 2.3.0 is a substantial redesign and expansion of the original MIT-licensed [FAMATBubbler](https://github.com/AnirudhRahul/FAMATBubbler) project by AnirudhRahul, including an earlier roster-reader contribution by NoRePercussions.
 
 The application header includes the same current geometric orange-and-blue FAMAT identity used in the 2027 participant packet. The bundled image is a byte-identical runtime copy of the project's approved active logo.

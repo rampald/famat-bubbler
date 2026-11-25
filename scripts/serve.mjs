@@ -18,7 +18,6 @@ const mimeTypes = new Map([
 
 function safePath(url) {
   const pathname = decodeURIComponent(new URL(url, `http://${host}:${port}`).pathname);
-  // 2.4.0: index.html is Quick print; the full builder is builder.html.
   const relative = pathname === "/" ? "index.html" : pathname.replace(/^\/+/, "");
   const candidate = resolve(root, relative);
   if (candidate !== root && !candidate.startsWith(`${root}${sep}`)) return null;

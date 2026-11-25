@@ -54,6 +54,10 @@ export const DIVISION_LABELS = Object.freeze({
   alpha: "Alpha",
   mu: "Mu / Calculus",
   open: "Open",
+  hiller: "Hiller",
+  nunn: "Nunn",
+  dostal_precalculus: "Dostal - Precalculus",
+  dostal_calculus: "Dostal - Calculus",
 });
 
 const REGIONAL_DIVISIONS = Object.freeze([
@@ -66,6 +70,20 @@ const REGIONAL_DIVISIONS = Object.freeze([
 ]);
 const STATE_DIVISIONS = Object.freeze(["chi", "theta", "alpha", "mu", "statistics"]);
 const NATIONAL_DIVISIONS = Object.freeze(["theta", "alpha", "mu"]);
+const HND_DIVISIONS = Object.freeze(["hiller", "nunn", "dostal_precalculus", "dostal_calculus"]);
+
+/**
+ * Hiller / Nunn / Dostal: the ID's 8th digit picks the test. A Statistics
+ * student (6) may take either Dostal test.
+ */
+export const HND_CHART = Object.freeze({
+  1: Object.freeze(["hiller"]),
+  2: Object.freeze(["nunn"]),
+  3: Object.freeze(["nunn"]),
+  4: Object.freeze(["dostal_precalculus"]),
+  5: Object.freeze(["dostal_calculus"]),
+  6: Object.freeze(["dostal_precalculus", "dostal_calculus"]),
+});
 
 /** Regional and Statewide columns of the chart, by the row the ID digit selects. */
 export const REGIONAL_ELIGIBILITY_CHART = Object.freeze({
@@ -136,7 +154,7 @@ function makeIssue(severity, code, message, field) {
 
 function profileScheme(profile) {
   const id = typeof profile === "string" ? profile : profile?.id;
-  return ["regional", "state", "national", "custom"].includes(id) ? id : "state";
+  return ["regional", "state", "national", "custom", "hnd"].includes(id) ? id : "state";
 }
 
 function labelFor(division) {
@@ -178,6 +196,7 @@ export function divisionsForScheme(profile) {
   if (scheme === "regional") return REGIONAL_DIVISIONS;
   if (scheme === "state") return STATE_DIVISIONS;
   if (scheme === "national") return NATIONAL_DIVISIONS;
+  if (scheme === "hnd") return HND_DIVISIONS;
   return Object.freeze([]);
 }
 
@@ -224,7 +243,7 @@ export function evaluateDivisionEligibility({
   let minimumTopicRank = null;
 
   const { ids: previousIdList, invalid: invalidPrevious } = parsePreviousIds(previousIds);
-  const usesIds = scheme === "regional" || scheme === "state";
+  const usesIds = scheme === "regional" || scheme === "state" || scheme === "hnd";
   if (!usesIds && (previousIdList.length > 0 || invalidPrevious.length > 0)) {
     issues.push(
       makeIssue(
@@ -283,6 +302,32 @@ export function evaluateDivisionEligibility({
         }
       }
     }
+  } else if (scheme === "hnd") {
+    chartRow = idDigit ? HND_CHART[idDigit] ?? null : null;
+    if (idDigit === "6") {
+      // Statistics: Dostal - Calculus if they took Precalculus or Calculus
+      // before; Dostal - Precalculus if every earlier ID is below Precalculus.
+      const digits = previous.map((entry) => entry.digit);
+      if (digits.some((digit) => digit === "4" || digit === "5")) {
+        registeredDivision = "dostal_calculus";
+      } else {
+        registeredDivision = "dostal_precalculus";
+        const allBelowPrecalculus =
+          digits.length > 0 && digits.every((digit) => digit === "1" || digit === "2" || digit === "3");
+        if (!allBelowPrecalculus) {
+          issues.push(
+            makeIssue(
+              "warning",
+              "HND_STATISTICS_CHECK",
+              "Statistics student: Dostal - Precalculus is checked. If they have already taken Precalculus, check Dostal - Calculus instead. Last year's ID under Previous Year IDs decides this automatically.",
+              "tests",
+            ),
+          );
+        }
+      }
+    } else {
+      registeredDivision = chartRow?.length === 1 ? chartRow[0] : null;
+    }
   } else if (scheme === "state") {
     registeredDivision = idDigit ? STATE_DIVISION_BY_ID_DIGIT[idDigit] ?? null : null;
     chartRow = idDigit ? STATE_ELIGIBILITY_CHART[idDigit] ?? null : null;
@@ -311,13 +356,16 @@ export function evaluateDivisionEligibility({
   const rows = divisions.map((candidate) => {
     const reasons = [];
     let allowed = true;
-    if (scheme === "regional" || scheme === "state") {
+    if (scheme === "regional" || scheme === "state" || scheme === "hnd") {
       if (!validId) {
         allowed = false;
         reasons.push("Enter the student's nine-digit ID to see the divisions it allows.");
       } else if (!chartRow) {
         allowed = false;
         reasons.push(`The ID's 8th digit (${idDigit}) is not a division number for this competition.`);
+      } else if (!chartRow.includes(candidate) && scheme === "hnd") {
+        allowed = false;
+        reasons.push(`Not the test for an ID whose 8th digit is ${idDigit} (${ID_DIGIT_COURSES[idDigit] ?? "unknown"}).`);
       } else if (!chartRow.includes(candidate)) {
         allowed = false;
         reasons.push(

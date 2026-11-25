@@ -160,6 +160,7 @@ export function sortJobs(jobs, sortBy = "student") {
     return (
       GROUP_ORDER[left.group] - GROUP_ORDER[right.group] ||
       compareText(left.testCode, right.testCode) ||
+      compareText(left.testSortKey ?? "", right.testSortKey ?? "") ||
       compareText(left.studentName, right.studentName) ||
       compareText(left.sourceStateId ?? left.stateId, right.sourceStateId ?? right.stateId)
     );
@@ -885,7 +886,7 @@ export function buildPacket(input = {}) {
     // Division: Regional and State read it from the ID; National uses its column.
     const rawDivision = collapseWhitespace(record.division);
     const columnDivision = rawDivision ? normalizeDivisionForProfile(rawDivision, profile) : null;
-    if (rawDivision && !columnDivision && scheme !== "custom") {
+    if (rawDivision && !columnDivision && scheme !== "custom" && scheme !== "hnd") {
       warnings.push(
         makeIssue(
           "warning",
@@ -1040,13 +1041,15 @@ export function buildPacket(input = {}) {
           ),
         );
       }
-    } else if (scheme === "state" || scheme === "national") {
+    } else if (scheme === "state" || scheme === "national" || scheme === "hnd") {
       if (individuals.length > 1) {
         errors.push(
           makeIssue(
             "error",
             "ONE_INDIVIDUAL_ONLY",
-            `A ${scheme === "state" ? "State Convention" : "National Convention"} student takes one Individual test; ${individuals.length} are checked.`,
+            scheme === "hnd"
+              ? `A Hiller / Nunn / Dostal student takes one test; ${individuals.length} are checked.`
+              : `A ${scheme === "state" ? "State Convention" : "National Convention"} student takes one Individual test; ${individuals.length} are checked.`,
             { ...details, field: "tests", testIds: individuals.map((test) => test.id) },
           ),
         );
@@ -1100,7 +1103,9 @@ export function buildPacket(input = {}) {
           sourceStateId: stateId,
           division,
           testId: test.id,
-          testCode: test.code,
+          testCode: test.code ?? "",
+          blankTestCode: test.blankCode === true && (test.code === null || test.code === undefined),
+          testSortKey: test.sortKey ?? "",
           testName: test.name,
           group: test.group,
         });

@@ -122,11 +122,9 @@ export function normalizePageJob(job) {
     job.testName ?? nestedTest?.name ?? (typeof job.test === "string" ? job.test : undefined),
     "Test name",
   );
-  // 2.4.0: some competitions (Hiller/Nunn/Dostal) leave the Test Code blank.
-  // A blank code is allowed only when the job says so explicitly.
+  // Hiller / Nunn / Dostal sheets leave the test-code boxes blank.
   const rawCode = job.testCode ?? nestedTest?.code ?? job.code;
-  const blankTestCode =
-    job.blankTestCode === true && (rawCode == null || String(rawCode).trim() === "");
+  const blankTestCode = job.blankTestCode === true && (rawCode == null || String(rawCode).trim() === "");
   const testCode = blankTestCode ? "" : requireDigitString(rawCode, 3, "Test code");
 
   return Object.freeze({ studentName, stateId, schoolName, testName, testCode });
@@ -164,6 +162,7 @@ export function expandPageJobs(students) {
           schoolName: student.schoolName ?? student.school,
           testName: test.testName ?? test.name,
           testCode: test.testCode ?? test.code,
+          blankTestCode: test.blankTestCode ?? test.blankCode,
         }),
       );
     }

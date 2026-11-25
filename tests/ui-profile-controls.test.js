@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
-const indexHtml = readFileSync(new URL("../builder.html", import.meta.url), "utf8");
+const indexHtml = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const appSource = readFileSync(new URL("../src/app.js", import.meta.url), "utf8");
 const stylesSource = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
 
@@ -65,7 +65,7 @@ test("State interface presents the current packet's Chi digit and Individual cod
   assert.doesNotMatch(appSource, /Chi Individual[^.]*pending/i);
 });
 
-test("profile selector offers the four explicit workflows in the intended order", () => {
+test("profile selector offers the five explicit workflows in the intended order", () => {
   const profileSelect = elementSourceById(indexHtml, "select", "convention-profile");
   const options = [...profileSelect.matchAll(/<option\b([^>]*)>/gi)].map((match) => ({
     attributes: match[1],
@@ -74,7 +74,7 @@ test("profile selector offers the four explicit workflows in the intended order"
 
   assert.deepEqual(
     options.map(({ value }) => value),
-    ["regional", "state", "national", "custom"],
+    ["regional", "state", "national", "custom", "hnd"],
   );
   const stateOption = options.find(({ value }) => value === "state");
   assert.ok(stateOption, "Expected the State profile option");
