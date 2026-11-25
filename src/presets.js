@@ -194,7 +194,8 @@ export const PRESETS = Object.freeze({
   }),
 });
 
-const ID_TOKEN = /(?<!\d)(\d{4})\s?(\d{3})\s?(\d{2})(?!\d)/g;
+// "1234 001 20" (roster PDF), "1234-001-20" (famat.org Students page) or "123400120".
+const ID_TOKEN = /(?<!\d)(\d{4})[\s-]?(\d{3})[\s-]?(\d{2})(?!\d)/g;
 const DIVISION_WORDS =
   /\s*[,\t;]?\s*(Algebra\s*(?:I{1,2}|1|2)|Geometry|Pre-?\s?calculus|Calculus|Statistics|Chi)\s*[,\t;]?\s*$/i;
 

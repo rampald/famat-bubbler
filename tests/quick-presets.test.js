@@ -254,3 +254,14 @@ test("State: each round lists coded sheets by test first, then the no-code sheet
   assert.deepEqual(round1.map((j) => [j.studentName, j.testCode]), [["Zed", "341"], ["Ann", ""], ["Cal", ""]]);
   assert.deepEqual(jobs.slice(0, 3).map((j) => j.studentName), ["Ann", "Zed", "Cal"]);
 });
+
+test("famat.org Students page rows (dashed IDs, tab-separated) read like the roster", () => {
+  const page = "Last\tFirst\tDivisions\tCodes\nDoe\tJane\tGeometry\t1234-001-20\nRoe, Ann\tAlgebra I\t1234-002-10";
+  const { students, skipped } = parseQuickRoster(page, { teamDigit: "0" });
+  assert.deepEqual(students.map((s) => s.id), ["123400120", "123400210"]);
+  assert.equal(students[1].name, "Roe, Ann");
+  assert.equal(skipped, 1);
+  assert.deepEqual(buildRows(ndh, students).map((r) => r.pile), [NDH_PILES.NUNN, NDH_PILES.HILLER]);
+  // Phone numbers and dates are not IDs.
+  assert.equal(parseQuickRoster("Office 561-495-7272\nDate 2026-12-02").students.length, 0);
+});
