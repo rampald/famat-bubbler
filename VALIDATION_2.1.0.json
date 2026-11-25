@@ -1,0 +1,56 @@
+{
+  "product": "FAMAT and Mu Alpha Theta Scantron Builder",
+  "version": "2.1.0",
+  "date": "2026-10-21",
+  "timezone": "America/New_York",
+  "profiles": [
+    "FAMAT Regional / Invitational",
+    "FAMAT State Convention 2027",
+    "Mu Alpha Theta National Convention 2027",
+    "Custom competition"
+  ],
+  "automated_checks": [
+    {
+      "command": "npm run check",
+      "result": "PASS",
+      "tests": 71,
+      "passed": 71,
+      "failed": 0,
+      "includes": "node syntax check for src/app.js plus catalog, parser, packet, PDF, Regional-profile, and UI-contract tests"
+    },
+    {
+      "command": "git diff --check",
+      "result": "PASS"
+    }
+  ],
+  "browser_smoke_test": {
+    "result": "PASS",
+    "url": "http://127.0.0.1:4173",
+    "observed": [
+      "State remains selected by default even though Regional / Invitational is the first option",
+      "Regional / Invitational displays a required tournament name, configurable Event 1 through Event 4 slots, State ID wording, and a two-page fictional sample",
+      "Regional / Invitational and Custom preserve separate tournament names when switching profiles",
+      "National displays its required Round 3 assignment and pending-code safety guidance",
+      "State sample remains a valid nine-page packet for three students without relying on the pending Chi Individual code",
+      "the State fictional sample generated and downloaded a nine-page PDF successfully",
+      "per-row selection visibly highlights a row and updates the selected-row count",
+      "select-all checks every row and the header checkbox enters a mixed state after one row is deselected",
+      "Delete selected presents a count-specific irreversible-action confirmation before changing rows",
+      "the page produced no browser warnings or errors during profile and selection testing",
+      "at a 390-pixel viewport, the document body remained within the viewport while the wide roster table retained its own horizontal scroller"
+    ]
+  },
+  "release_regressions": [
+    "the packaged header logo is accessible as FAMAT, declares its 2020 by 778 intrinsic dimensions, and has SHA-256 1968C5CFEFC7A8204BD11EFBF5D033148949A4EE31C31B4C73A539237C3994D5",
+    "the State CSV importer accepts the participant packet's exact No Team STATE ID heading as the Student ID field",
+    "ready-state summaries use student for exactly one row and students for every other row count"
+  ],
+  "safety_checks": [
+    "Delete selected and Clear all rows both require confirmation",
+    "Clear all rows preserves the active profile and configured event catalog",
+    "Regional / Invitational begins with no presumed events or scorer codes",
+    "Chi Individual remains pending and assigned Chi sheets are blocked until an organizer-reviewed code is entered",
+    "assigned events with missing or invalid three-digit codes remain blocked"
+  ],
+  "production_limit": "A physical print-alignment and actual-scanner acceptance test is still required before a full production run. Every tournament's event catalog and scorer codes must be compared with final organizer-approved instructions."
+}

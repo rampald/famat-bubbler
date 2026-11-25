@@ -1,0 +1,24 @@
+{
+  "version": "2.3.0",
+  "date": "2026-10-23",
+  "source": "FAMAT Sponsors' Guide 2026-2027: Eligibility Chart for Competitions (p. 31), Student ID instructions (p. 34), regional schedule (p. 5)",
+  "commands": {
+    "npm test": { "tests": 101, "pass": 101, "fail": 0 },
+    "npm run check": { "syntax": "src/app.js ok", "tests": 101, "pass": 101, "fail": 0 }
+  },
+  "newTests": "tests/checklist-eligibility.test.js (8 tests)",
+  "browserCheck": {
+    "browser": "Microsoft Edge (headless, Playwright)",
+    "stateSample": { "students": 4, "scantrons": 12, "pdfPages": 12, "errors": 0 },
+    "regionalSample": { "students": 3, "scantrons": 7, "errors": 0 },
+    "customSample": { "students": 1, "scantrons": 2, "errors": 0 },
+    "nationalSample": { "students": 3, "scantrons": 12, "blocked": "pending National codes, as in 2.2.0" },
+    "pastedRegionalRows": "Events and Previous Year IDs imported; Geometry blocked after a previous-year Algebra II ID; Pre-Calculus + Statistics produced the same-round warning",
+    "checklist": "locked divisions show reasons; previous-year IDs remove divisions; toggles update counts; a second State Individual blocks; bulk check skips ineligible students; an ID change unchecks tests the new ID does not allow",
+    "pageErrors": 0
+  },
+  "notes": [
+    "Course-eligibility questions are retained in the code but switched off (courseEligibilityQuestions: false).",
+    "Physical print and scanner acceptance testing is still required before production printing."
+  ]
+}

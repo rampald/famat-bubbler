@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FAMAT Scantrons - Quick print</title>
+  <link rel="stylesheet" href="quick.css">
+  <script src="vendor/jspdf.umd.min.js"></script>
+  <script>
+    window.FAMAT_PDFJS_PATHS = Object.freeze({ library: "./vendor/pdf.mjs", worker: "./vendor/pdf.worker.mjs" });
+  </script>
+  <script type="module" src="src/quick.js"></script>
+</head>
+<body>
+  <header>
+    <img src="assets/famat-gator-orange-blue.png" alt="" class="logo">
+    <div>
+      <h1>FAMAT Scantrons</h1>
+      <p class="sub">Paste your roster, check the list, print.</p>
+    </div>
+    <a class="full" href="builder.html">Full builder (State, Regional, National, Custom)</a>
+  </header>
+
+  <main>
+    <section class="card">
+      <div class="row">
+        <label>Competition
+          <select id="preset"></select>
+        </label>
+        <label class="grow">School name
+          <input id="school" placeholder="Filled in from the roster">
+        </label>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>1. Paste your famat.org roster</h2>
+      <p class="hint">Copy the roster page from famat.org (or open the roster PDF) and paste it all here, header lines included. You can paste the high school and middle school rosters together. A CSV with Name and ID also works.</p>
+      <textarea id="roster" rows="8" spellcheck="false" placeholder="Roster: Your School #1234&#10;Student Division Team 1 ID Team 2 ID No Team ID&#10;Last, First Geometry 1234 001 21 1234 001 22 1234 001 20"></textarea>
+      <div class="row">
+        <label class="file">Or open a file <input id="rosterFile" type="file" accept=".pdf,.csv,.tsv,.txt"></label>
+        <button id="read" class="primary">Read roster</button>
+      </div>
+      <details id="lastYearBox">
+        <summary id="lastYearSummary">Optional: last year's roster</summary>
+        <p class="hint" id="lastYearHint"></p>
+        <textarea id="lastYear" rows="4" spellcheck="false"></textarea>
+        <label class="file">Or open last year's file <input id="lastYearFile" type="file" accept=".pdf,.csv,.tsv,.txt"></label>
+      </details>
+    </section>
+
+    <section class="card" id="reviewCard" hidden>
+      <h2>2. Check the list</h2>
+      <div id="summary" class="chips"></div>
+      <p id="needs" class="warn" hidden></p>
+      <div id="topics" class="topics" hidden>
+        <h3>Topic tests</h3>
+        <p class="hint">Pick each division's topic test once, or leave "Name and ID only" so students bubble the test code at the test.</p>
+        <div id="topicGrid"></div>
+      </div>
+      <div id="bulk" class="bulk" hidden>
+        <b id="bulkCount"></b>
+        <select id="bulkTest" aria-label="Set test for selected"></select>
+        <button id="bulkOut" type="button">Leave out</button>
+        <button id="bulkIn" type="button">Put back</button>
+        <button id="bulkDelete" type="button" class="danger">Delete</button>
+        <button id="bulkClear" type="button" class="link">Clear</button>
+      </div>
+      <p class="hint tip">Tick students to change or delete several at once. Shift-click to tick a range.</p>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th class="pick"><input type="checkbox" id="pickAll" aria-label="Select all"></th><th>Name</th><th>FAMAT ID</th><th>Test</th><th>Delete</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <button id="addRow" class="add">Add student</button>
+    </section>
+
+    <section class="card" id="printCard" hidden>
+      <h2>3. Print</h2>
+      <button id="make" class="primary big">Make scantrons</button>
+      <p id="printNote" class="hint"></p>
+      <p class="hint">Print at Actual size (100%), single-sided, on a good laser printer. Check that the corner marks and bubbles print dark before printing the whole stack.</p>
+      <p id="status" class="status" role="status"></p>
+    </section>
+  </main>
+  <footer>All roster processing happens on this computer. Nothing is uploaded.</footer>
+</body>
+</html>

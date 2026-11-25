@@ -1,0 +1,48 @@
+# Dependencies and test/build output
+node_modules/
+coverage/
+.nyc_output/
+dist/
+build/
+
+# Generated packets and local working output
+output/
+generated/
+downloads/
+FAMAT-*-Scantrons-*.pdf
+*scantron-packet*.pdf
+
+# Real registration and roster data must never be committed
+private-data/
+roster*.pdf
+roster*.csv
+roster*.tsv
+registration*.csv
+registration*.tsv
+participants*.csv
+participants*.tsv
+students*.csv
+students*.tsv
+*.xlsx
+*.xls
+
+# Credentials and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+secrets*.json
+*.local
+
+# Logs, editor settings, and operating-system files
+*.log
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini

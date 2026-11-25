@@ -1,0 +1,42 @@
+FAMAT Bubbler 2.3.0 - quick start
+
+The application header uses the same current geometric orange-and-blue FAMAT logo as the 2027 participant packet.
+
+1. Extract the complete FAMATBubbler folder. Keep its folders and files together.
+2. Install a current version of Node.js if the computer does not already have node and npm.
+3. Open PowerShell or Command Prompt in the extracted FAMATBubbler folder.
+4. Run: npm start
+5. Open http://127.0.0.1:4173 in a current browser. Do not open index.html directly.
+6. Select Regional / Invitational, State Convention, National Convention, or Custom. State is selected initially.
+   - Regional / Invitational also covers Statewide competitions. Enter the organizer-approved codes for the six division Individuals and add only the Opens or other written events this competition offers. Sample Regional names and codes are fictional. Speed and Mental are excluded.
+   - State uses the current packet's divisions: Chi, Theta, Alpha, Mu/Calculus, and Statistics. Chi uses ID digit 9 and code 291.
+   - National starts with an editable event template; current scorer codes must be entered and reviewed.
+   - Custom is a separate blank setup for another competition format.
+7. Enter the full school name or include School on every imported row.
+8. Import one or more CSV, TSV, TXT, or selectable-text registration PDF files, or paste spreadsheet rows.
+9. Review every student. Each row has a "Tests to print" checklist; each checked test prints one scantron.
+   - The division comes from the 8th digit of the student's FAMAT ID (1 Algebra I, 2 Geometry, 3 Algebra II, 4 Precalculus, 5 Calculus, 6 Statistics; State also uses 9 for Chi). The Individual for that division is checked automatically.
+   - Only divisions the Sponsors' Guide 2026-2027 eligibility chart allows for that digit can be checked. Locked tests show the reason.
+   - Previous-year IDs are optional. When given, they remove divisions the student can no longer enter: one-year eligibility in Algebra I, Geometry, Algebra II, and Statistics; no testing down; no second year of Statistics. Separate several IDs with semicolons.
+   - Regional: at most two Individuals, one of them Statistics, Precalculus, or Calculus. A second Individual prints with its own division digit.
+   - State and National: one Individual; topic tests at or above the student's level.
+   - To check or uncheck one test for many students, use "Check or uncheck a test for several students". It applies to the selected rows, or to all rows when none are selected.
+10. Review the event catalog, resolve every blocking issue, and confirm the expected sheets in the manifest.
+11. Generate the PDF. Print US Letter, single-sided, at Actual size / 100 percent. Disable Fit to page, headers, and footers.
+12. Print one sample first. Check the student and test information and make sure the Student ID and Test Code bubbles are centered and dark before printing the full packet.
+
+All roster processing happens on this computer. The program does not upload or retain student data.
+
+Upload columns (one header row, one student per row):
+School,School Code,Student Name,Student ID,Previous Year IDs,Events
+
+- Student Name and Student ID are required.
+- Events lists the tests to print, separated by semicolons, using full names or three-digit codes, for example: "Precalculus Individual; Sample Open". Leave it blank to print only the Individual for the ID's division.
+- National files may add a Division column (Theta, Alpha, or Mu).
+- Older files with Individual, Round 1-3, Optional Event 1-6, or Event 1-4 columns still import. Course columns such as Eligibility Basis are ignored.
+
+Verification commands:
+npm test
+npm run check
+
+Check every event name and three-digit code against the current organizer-approved list before production printing. The current State packet uses Chi Individual code 291, but the complete catalog still requires final operational review.

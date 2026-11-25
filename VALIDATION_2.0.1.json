@@ -1,0 +1,42 @@
+{
+  "product": "FAMAT and Mu Alpha Theta Scantron Builder",
+  "version": "2.0.1",
+  "date": "2026-10-21",
+  "timezone": "America/New_York",
+  "record_correction": "Updated 2026-10-22: the earlier Chi Individual confirmation claim was withdrawn.",
+  "state_catalog": {
+    "chi_individual_code": null,
+    "confirmation_status": "pending final organizer confirmation",
+    "operational_behavior": "Assigned Chi Individual sheets are blocked until an organizer-reviewed three-digit code is entered."
+  },
+  "automated_checks": [
+    {
+      "command": "npm test",
+      "result": "PASS",
+      "tests": 60,
+      "passed": 60,
+      "failed": 0
+    },
+    {
+      "command": "npm run check",
+      "result": "PASS",
+      "tests": 60,
+      "passed": 60,
+      "failed": 0,
+      "includes": "node syntax check for src/app.js"
+    }
+  ],
+  "browser_smoke_test": {
+    "result": "PASS",
+    "url": "http://127.0.0.1:4173",
+    "observed": [
+      "State profile selected by default",
+      "CSV, TSV, TXT, PDF, and pasted-row directions visible",
+      "three planned sheets per State student stated",
+      "local-processing privacy notice visible",
+      "Actual size / 100 percent print directions visible",
+      "Revision 21's exact No Team STATE ID column heading imports as the Student ID field"
+    ]
+  },
+  "production_limit": "A physical print-alignment and actual-scanner acceptance test is still required before the full production run."
+}

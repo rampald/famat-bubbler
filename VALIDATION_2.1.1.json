@@ -1,0 +1,41 @@
+{
+  "product": "FAMAT and Mu Alpha Theta Scantron Builder",
+  "version": "2.1.1",
+  "date": "2026-10-22",
+  "timezone": "America/New_York",
+  "automated_checks": [
+    {
+      "command": "npm run check",
+      "result": "PASS",
+      "tests": 73,
+      "passed": 73,
+      "failed": 0,
+      "includes": "node syntax check for src/app.js plus catalog, parser, packet, PDF, Regional-profile, and UI-contract tests"
+    },
+    {
+      "command": "git diff --check",
+      "result": "PASS"
+    }
+  ],
+  "browser_smoke_test": {
+    "result": "PASS",
+    "url": "http://127.0.0.1:4173",
+    "observed": [
+      "the logo, convention label, title, summary, and catalog button form one centered header column at desktop width",
+      "the Import, Review, and Download navigation remains evenly aligned below the header",
+      "at 390-pixel and 320-pixel viewports, the title center matched the viewport center and the document had no horizontal overflow",
+      "the State interface describes Chi Individual as pending and the assignment menu labels it pending",
+      "the three-student State sample remained valid with nine planned scantrons and enabled generation",
+      "assigning Chi Individual to a sample student disabled generation and displayed a blocking pending-code issue",
+      "no browser errors or unhandled promise rejections were captured during the sample and Chi safety checks"
+    ]
+  },
+  "safety_correction": {
+    "event": "Chi Individual",
+    "default_code": null,
+    "status": "pending",
+    "blocking": true,
+    "required_action": "Enter an organizer-reviewed, unique three-digit scorer code before generating any assigned Chi Individual sheet."
+  },
+  "production_limit": "A physical print-alignment and actual-scanner acceptance test is still required before a full production run. Every tournament's event catalog and scorer codes must be compared with final organizer-approved instructions."
+}
