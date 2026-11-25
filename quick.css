@@ -64,3 +64,16 @@ td.pick input, th.pick input { width:16px; height:16px; cursor:pointer; }
 .bulk button.danger { background:#b3261e; color:#fff; border-color:#b3261e; }
 .bulk button.link { background:none; border:none; color:#fff; text-decoration:underline; }
 .hint.tip { margin:4px 0 8px; font-size:.82rem; }
+
+/* Review fixes: rows to check, school choice, topic notes, read feedback */
+#rows tr.check td { background:#fff8d6; }
+#rows tr.sel.check td { background:#dbe7ff; }
+.pickschool { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:10px; }
+.pickschool button { font-size:.9rem; padding:5px 12px; }
+[hidden] { display:none !important; }
+#needs div + div { margin-top:4px; }
+.remembered { margin-left:6px; font-weight:400; font-size:.8rem; color:var(--warn); }
+.topic-row .who { flex-basis:100%; color:var(--muted); font-size:.82rem; }
+#readStatus { margin:8px 0 0; font-weight:400; color:var(--muted); font-size:.9rem; }
+#readStatus:empty { display:none; }
+.row .add { margin-top:0; }

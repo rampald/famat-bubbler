@@ -1,7 +1,8 @@
 // Quick print page (Bubbler 2.4.0): pick a competition, paste a roster, print.
 import {
-  PRESETS, parseQuickRoster, previousDigitsByName, buildRows, rowsToJobs,
-  STATE_TEST_BY_ID, TOPIC_BLANK, TOPIC_NONE,
+  PRESETS, parseQuickRoster, previousDigitsByName, buildRows, mergeRoster, rowsToJobs,
+  applyBulkTest, tickRange, stateSheetGaps, nameKey,
+  STATE_TEST_BY_ID, STATE_ROUNDS, TOPIC_BLANK, TOPIC_NONE,
 } from "./presets.js";
 import { downloadScantronPdf } from "./pdf.js";
 import { extractPdfText } from "./pdf-import.js";
@@ -11,14 +12,21 @@ const store = {
   get(k) { try { return localStorage.getItem(`famatQuick.${k}`); } catch { return null; } },
   set(k, v) { try { localStorage.setItem(`famatQuick.${k}`, v); } catch { /* private mode */ } },
 };
+const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
+// The one editable list. Every change (re-read, competition, last year's roster)
+// is recomputed from these rows, so names, IDs, piles set by hand and students
+// left out or typed in survive.
 let rows = [];
 let lastPicked = null;
+let pendingSchool = null; // roster's school name when it differs from the saved one
 // topicChoice[round][division] = test id, TOPIC_BLANK or TOPIC_NONE (remembered per computer).
 let topicChoice = {};
 try { topicChoice = JSON.parse(store.get("topics") ?? "{}") ?? {}; } catch { topicChoice = {}; }
+const choseThisVisit = new Set(); // "round|division" picked on this visit (others are remembered)
 
 function preset() { return PRESETS[$("preset").value]; }
+function lastYearMap() { return $("lastYear").value.trim() ? previousDigitsByName($("lastYear").value) : new Map(); }
 
 function showLastYearText() {
   const p = preset();
@@ -35,9 +43,12 @@ showLastYearText();
 $("preset").addEventListener("change", () => {
   store.set("preset", $("preset").value);
   showLastYearText();
-  if (rows.length) readRoster();
+  if (rows.length) { recompute(); sortRows(); render(); }
 });
-$("school").addEventListener("input", () => store.set("school", $("school").value.trim()));
+$("school").addEventListener("input", () => {
+  store.set("school", $("school").value.trim());
+  if (pendingSchool) { pendingSchool = null; $("schoolPick").hidden = true; render(); }
+});
 
 async function fileText(file) {
   if (/\.pdf$/i.test(file.name)) return extractPdfText(await file.arrayBuffer(), window.FAMAT_PDFJS_PATHS);
@@ -51,31 +62,66 @@ $("rosterFile").addEventListener("change", async (e) => {
 $("lastYearFile").addEventListener("change", async (e) => {
   const f = e.target.files[0]; if (!f) return;
   $("lastYear").value += ($("lastYear").value ? "\n" : "") + (await fileText(f));
-  if (rows.length) readRoster();
+  if (rows.length) { recompute(); render(); }
 });
-$("lastYear").addEventListener("change", () => { if (rows.length) readRoster(); });
+$("lastYear").addEventListener("change", () => { if (rows.length) { recompute(); render(); } });
 $("read").addEventListener("click", readRoster);
 $("addRow").addEventListener("click", () => {
-  rows.push({ name: "", id: "", eligible: false, pile: null, choices: [], reason: "Type a name and 9-digit ID", prevDigits: [] });
+  rows.push({ typed: true, name: "", id: "", previousIds: [] });
+  recompute();
+  lastPicked = null;
   render();
   const cells = $("rows").lastElementChild?.querySelectorAll("td.edit");
   cells?.[0]?.focus();
+  $("rows").lastElementChild?.scrollIntoView({ block: "nearest" });
 });
 $("make").addEventListener("click", makePdf);
+$("schoolUseRoster").addEventListener("click", () => chooseSchool(pendingSchool));
+$("schoolKeep").addEventListener("click", () => chooseSchool($("school").value.trim()));
+
+function chooseSchool(name) {
+  $("school").value = name;
+  store.set("school", name);
+  pendingSchool = null;
+  $("schoolPick").hidden = true;
+  render();
+}
+
+function recompute() { rows = buildRows(preset(), rows, lastYearMap()); }
+
+function sortRows() {
+  const p = preset();
+  // Highlighted rows first: a pile to choose, then a pile to check.
+  const rank = (r) => (!r.eligible ? 999 : !r.pile ? -2 : r.check ? -1 : Math.max(0, p.pileOrder.indexOf(r.pile)));
+  rows.sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
+  lastPicked = null;
+}
 
 function readRoster() {
   const p = preset();
-  const { schoolName, students } = parseQuickRoster($("roster").value, { teamDigit: p.teamDigit });
-  if (schoolName && !$("school").value.trim()) {
+  const { schoolName, students, skipped } = parseQuickRoster($("roster").value, { teamDigit: p.teamDigit });
+  const saved = $("school").value.trim();
+  if (schoolName && !saved) {
     $("school").value = schoolName;
     store.set("school", schoolName);
+  } else if (schoolName && nameKey(schoolName) !== nameKey(saved)) {
+    pendingSchool = schoolName;
+    $("schoolUseRoster").textContent = `Use "${schoolName}"`;
+    $("schoolKeep").textContent = `Keep "${saved}"`;
+    $("schoolPick").hidden = false;
   }
-  const lastYear = $("lastYear").value.trim() ? previousDigitsByName($("lastYear").value) : new Map();
-  const rank = (r) => (!r.eligible ? 999 : !r.pile ? -1 : Math.max(0, p.pileOrder.indexOf(r.pile)));
-  rows = buildRows(p, students, lastYear).sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
+  const typedBefore = rows.filter((r) => !r.srcKey && r.typed).length;
+  const { students: merged, kept } = mergeRoster(rows, students);
+  rows = buildRows(p, merged, lastYearMap());
+  sortRows();
   render();
-  if (students.length === 0) setStatus("No students found. Paste the roster lines that include the IDs.");
-  else setStatus("");
+  const parts = [];
+  if (students.length === 0) parts.push("No students found. Paste the roster lines that include the 9-digit IDs.");
+  else parts.push(`Read ${plural(students.length, "student")}.`);
+  if (kept) parts.push(`Kept your changes to the ${plural(kept, "student")} already in the list.`);
+  if (typedBefore) parts.push(`Kept ${plural(typedBefore, "student")} you added by hand.`);
+  if (skipped) parts.push(`Skipped ${plural(skipped, "line")} with no name and 9-digit ID (headers are skipped too).`);
+  $("readStatus").textContent = parts.join(" ");
 }
 
 function render() {
@@ -90,10 +136,8 @@ function render() {
     const box = document.createElement("input"); box.type = "checkbox"; box.checked = Boolean(r.sel);
     box.setAttribute("aria-label", `Select ${r.name}`);
     box.addEventListener("click", (e) => {
-      if (e.shiftKey && lastPicked !== null) {
-        const [a, b] = [Math.min(lastPicked, i), Math.max(lastPicked, i)];
-        for (let k = a; k <= b; k += 1) rows[k].sel = box.checked;
-      } else r.sel = box.checked;
+      if (e.shiftKey && lastPicked !== null) tickRange(rows, lastPicked, i, box.checked);
+      else r.sel = box.checked;
       lastPicked = i;
       render();
     });
@@ -101,30 +145,38 @@ function render() {
     if (r.sel) tr.classList.add("sel");
     if (r.off || !r.eligible) tr.classList.add("out");
     else if (!r.pile) tr.classList.add("need");
+    else if (r.check) tr.classList.add("check");
     tr.title = r.reason ?? "";
     const name = document.createElement("td");
     name.contentEditable = "true"; name.className = "edit"; name.textContent = r.name;
-    name.addEventListener("blur", () => { r.name = name.textContent.trim(); });
+    name.addEventListener("blur", () => {
+      const v = name.textContent.trim();
+      if (v === r.name) return;
+      r.name = v; recompute(); render();
+    });
     const id = document.createElement("td");
     id.contentEditable = "true"; id.className = "edit mono"; id.textContent = r.id;
     id.addEventListener("blur", () => {
       const v = id.textContent.replace(/\D/g, "");
       if (v === r.id) return;
       if (v.length !== 9) { id.textContent = r.id; setStatus("A FAMAT ID has 9 digits."); return; }
-      const fresh = { name: r.name, id: p.teamDigit == null ? v : v.slice(0, 8) + p.teamDigit, prevDigits: r.prevDigits ?? [] };
-      Object.assign(r, { choices: [], topicsFor: undefined }, fresh, p.assign(fresh.id, fresh.prevDigits));
-      render();
+      r.id = p.teamDigit == null ? v : v.slice(0, 8) + p.teamDigit;
+      recompute(); render();
     });
     const test = document.createElement("td");
     if (r.choices.length && r.eligible && !r.off) {
       const sel = document.createElement("select");
-      sel.append(new Option("Choose...", ""));
+      if (!r.pile) sel.append(new Option("Choose...", ""));
       r.choices.forEach((c) => sel.append(new Option(c, c)));
       sel.value = r.pile ?? "";
-      sel.addEventListener("change", () => { r.pile = sel.value || null; r.reason = r.pile ? "Chosen by you" : r.reason; render(); });
+      sel.addEventListener("change", () => {
+        Object.assign(r, { pile: sel.value || null, manualPile: sel.value || undefined, check: false });
+        if (r.pile) r.reason = "Set by you";
+        render();
+      });
       test.append(sel);
     } else {
-      test.textContent = r.eligible ? (r.pile ?? "") : "Not printed";
+      test.textContent = r.eligible ? (r.pile ?? "") : r.id ? "Not printed" : "Type the ID";
     }
     const del = document.createElement("td"); del.className = "del";
     const x = document.createElement("button"); x.className = "x";
@@ -141,25 +193,51 @@ function render() {
   $("summary").replaceChildren(...[...counts].map(([k, n]) => {
     const s = document.createElement("span"); s.className = "chip"; s.innerHTML = `${k}: <b>${n}</b>`; return s;
   }));
-  const need = rows.filter((r) => !r.off && r.eligible && !r.pile).length;
+  const live = rows.filter((r) => !r.off && r.eligible);
+  const need = live.filter((r) => !r.pile).length;
+  const statsCheck = live.filter((r) => r.pile && r.check && !r.dupName).length;
+  const dupCheck = live.filter((r) => r.pile && r.dupName).length;
   const out = rows.filter((r) => r.off || !r.eligible).length;
   const msgs = [];
   if (need) msgs.push(p.sheets
-    ? `Choose the Individual for ${need} student${need > 1 ? "s" : ""} (highlighted).`
-    : `Choose a Dostal pile for ${need} Statistics student${need > 1 ? "s" : ""} (highlighted).`);
-  if (out) msgs.push(`${out} student${out > 1 ? "s" : ""} won't be printed (crossed out).`);
+    ? `Choose the Individual for ${plural(need, "student")} (highlighted).`
+    : `Choose a Dostal pile for ${plural(need, "Statistics student")} (highlighted).`);
+  if (statsCheck) msgs.push(`${plural(statsCheck, "Statistics student")} start${statsCheck === 1 ? "s" : ""} in Dostal Precalculus. Switch to Dostal Calculus anyone who took Precalculus before or is taking Calculus now (highlighted; printing isn't blocked).`);
+  if (dupCheck) msgs.push(`${plural(dupCheck, "student")} share${dupCheck === 1 ? "s" : ""} a name with another student, so last year's roster wasn't used for them. Check their test (highlighted).`);
+  if (out) msgs.push(`${plural(out, "student")} won't be printed (crossed out).`);
   renderTopics(p);
-  const mismatched = p.sheets
-    ? rows.filter((r) => !r.off && r.eligible && r.pile && p.sheets(r, topicChoice).some((s) => s.mismatch)).length : 0;
-  if (mismatched) msgs.push(`${mismatched} student${mismatched > 1 ? "s" : ""} can't take a chosen topic test (previous-year rule); they get a name-and-ID sheet for that round.`);
+  if (p.sheets) msgs.push(...gapMessages(p));
   $("needs").hidden = msgs.length === 0;
-  $("needs").textContent = msgs.join(" ");
+  $("needs").replaceChildren(...msgs.map((m) => { const d = document.createElement("div"); d.textContent = m; return d; }));
   const total = p.sheets ? rowsToJobs(p, rows, "x", topicChoice).length : [...counts.values()].reduce((a, b) => a + b, 0);
   $("reviewCard").hidden = rows.length === 0;
   $("printCard").hidden = rows.length === 0;
-  $("make").disabled = need > 0 || total === 0;
-  $("make").textContent = need > 0 ? `Choose ${need} pile${need > 1 ? "s" : ""} first` : `Make ${total} scantron${total === 1 ? "" : "s"}`;
+  $("make").disabled = need > 0 || total === 0 || Boolean(pendingSchool);
+  $("make").textContent = pendingSchool ? "Pick the school name first"
+    : need > 0 ? `Choose ${plural(need, "pile")} first` : `Make ${plural(total, "scantron")}`;
   $("printNote").textContent = p.printNote ?? "";
+}
+
+/** Names list for a message: up to 5 names, then "and N more". */
+function someNames(names) {
+  // Names are "Last, First", so separate them with semicolons.
+  return names.length <= 5 ? names.join("; ") : `${names.slice(0, 5).join("; ")} and ${names.length - 5} more`;
+}
+
+/** State: say who gets no test code or no sheet in each round, before printing. */
+function gapMessages() {
+  const gaps = stateSheetGaps(rows, topicChoice);
+  const printed = rows.filter((r) => !r.off && r.eligible && r.pile).length;
+  const msgs = [];
+  for (const { group, label } of STATE_ROUNDS) {
+    const g = gaps[group];
+    const round = label.replace(" topic test", "");
+    if (g.mismatch.length) msgs.push(`${round}: ${someNames(g.mismatch)} can't take the chosen test (previous-year rule), so they get a name-and-ID sheet with no test code.`);
+    if (g.blank.length && g.blank.length === printed) msgs.push(`${round}: no sheet has a test code yet; students bubble it at the test, or pick the tests above.`);
+    else if (g.blank.length) msgs.push(`${round}: ${plural(g.blank.length, "sheet")} will have no test code (${someNames(g.blank)}); students bubble it at the test.`);
+    if (g.none.length) msgs.push(`${round}: no sheet for ${someNames(g.none)}.`);
+  }
+  return msgs;
 }
 
 /** One Round 1 / Round 2 picker per Individual division present in the list. */
@@ -167,14 +245,14 @@ function renderTopics(p) {
   const box = $("topics");
   const grid = $("topicGrid");
   grid.replaceChildren();
-  const groups = new Map(); // individual test name -> division key + union of allowed topic ids
+  const groups = new Map(); // individual test name -> division key, names, union of allowed topic ids
   if (p.topicRounds) {
     for (const r of rows) {
       if (r.off || !r.eligible || !r.pile) continue;
       const ind = [...STATE_TEST_BY_ID.values()].find((t) => t.group === "individual" && t.name === r.pile);
       if (!ind) continue;
-      const g = groups.get(ind.name) ?? { division: ind.division, count: 0, allowed: {} };
-      g.count += 1;
+      const g = groups.get(ind.name) ?? { division: ind.division, names: [], allowed: {} };
+      g.names.push(r.name);
       const topics = r.topicsFor ? r.topicsFor(ind) : {};
       for (const { group } of p.topicRounds) {
         g.allowed[group] ??= new Set();
@@ -187,7 +265,7 @@ function renderTopics(p) {
   const ordered = [...groups].sort((a, b) => p.pileOrder.indexOf(a[0]) - p.pileOrder.indexOf(b[0]));
   for (const [name, g] of ordered) {
     const row = document.createElement("div"); row.className = "topic-row";
-    const label = document.createElement("b"); label.textContent = `${name} (${g.count})`;
+    const label = document.createElement("b"); label.textContent = `${name} (${g.names.length})`;
     row.append(label);
     for (const { group, label: roundLabel } of p.topicRounds) {
       const lab = document.createElement("label"); lab.textContent = `${roundLabel.replace(" topic test", "")} `;
@@ -199,12 +277,21 @@ function renderTopics(p) {
       sel.value = [...sel.options].some((o) => o.value === current) ? current : TOPIC_BLANK;
       sel.addEventListener("change", () => {
         topicChoice[group] = { ...(topicChoice[group] ?? {}), [g.division]: sel.value };
+        choseThisVisit.add(`${group}|${g.division}`);
         store.set("topics", JSON.stringify(topicChoice));
         render();
       });
       lab.append(sel);
+      if (sel.value !== TOPIC_BLANK && !choseThisVisit.has(`${group}|${g.division}`)) {
+        const mem = document.createElement("span"); mem.className = "remembered";
+        mem.textContent = "remembered from last time";
+        lab.append(mem);
+      }
       row.append(lab);
     }
+    const who = document.createElement("div"); who.className = "who";
+    who.textContent = someNames(g.names);
+    row.append(who);
     grid.append(row);
   }
 }
@@ -223,28 +310,22 @@ function renderBulk(p) {
   sel.value = p.pileOrder.includes(keep) ? keep : "";
 }
 
-function applyTest(p, test) {
-  let changed = 0, skipped = 0;
-  for (const r of rows.filter((x) => x.sel)) {
-    const ok = r.eligible && (r.allowedPiles ?? []).includes(test);
-    if (!ok) { skipped += 1; continue; }
-    r.pile = test; r.reason = "Set by you"; r.off = false; changed += 1;
-  }
-  setStatus(`${test}: set for ${changed} student${changed === 1 ? "" : "s"}` +
-    (skipped ? `; ${skipped} not allowed to take it, left as they were.` : "."));
-}
-
 $("pickAll").addEventListener("change", () => { rows.forEach((r) => { r.sel = $("pickAll").checked; }); lastPicked = null; render(); });
 $("bulkTest").addEventListener("change", () => {
-  if (!$("bulkTest").value) return;
-  applyTest(preset(), $("bulkTest").value); $("bulkTest").value = ""; render();
+  const test = $("bulkTest").value;
+  if (!test) return;
+  const { changed, skipped } = applyBulkTest(rows, test);
+  setStatus(`${test}: set for ${plural(changed, "student")}` +
+    (skipped ? `; ${skipped} not allowed to take it, left as they were.` : "."));
+  $("bulkTest").value = ""; render();
 });
 $("bulkOut").addEventListener("click", () => { rows.forEach((r) => { if (r.sel) r.off = true; }); render(); });
 $("bulkIn").addEventListener("click", () => { rows.forEach((r) => { if (r.sel) r.off = false; }); render(); });
 $("bulkDelete").addEventListener("click", () => {
   const n = rows.filter((r) => r.sel).length;
   rows = rows.filter((r) => !r.sel); lastPicked = null;
-  setStatus(`Deleted ${n} student${n === 1 ? "" : "s"} from the list. Read the roster again to bring them back.`);
+  recompute();
+  setStatus(`Deleted ${plural(n, "student")} from the list. Read the roster again to bring them back.`);
   render();
 });
 $("bulkClear").addEventListener("click", () => { rows.forEach((r) => { r.sel = false; }); lastPicked = null; render(); });

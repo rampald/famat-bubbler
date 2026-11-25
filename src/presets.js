@@ -82,8 +82,10 @@ function assignHndBase(id, previousDigits) {
         return { ...base, choices, pile: NDH_PILES.DOSTAL_PRECALC,
           reason: "Statistics, no Precalculus last year (last year's ID)" };
       }
-      return { ...base, choices, pile: null,
-        reason: "Statistics: choose Calculus if they took Precalculus before, otherwise Precalculus" };
+      // No history that settles it: default to Dostal Precalculus and flag the row,
+      // so the sponsor switches anyone who took Precalculus before or is in Calculus now.
+      return { ...base, choices, pile: NDH_PILES.DOSTAL_PRECALC, check: true,
+        reason: "Statistics: set to Dostal Precalculus. Switch to Dostal Calculus if they took Precalculus before or are taking Calculus now" };
     }
     default:
       return { ...base, eligible: false, pile: null,
@@ -174,7 +176,7 @@ export const PRESETS = Object.freeze({
     lastYearSummary: "Optional: last year's roster (applies the Sponsors' Guide previous-year rules)",
     lastYearHint: "Students may not test down from last year's level. Paste last year's roster and the app matches names to apply that rule.",
     printNote:
-      "The packet prints every Individual sheet first (grouped by division), then the Round 1 sheets, then the Round 2 sheets.",
+      "The packet prints every Individual sheet first (grouped by division), then the Round 1 sheets, then the Round 2 sheets. Each round is grouped by test, with the no-code sheets last.",
   }),
   "hiller-nunn-dostal": Object.freeze({
     id: "hiller-nunn-dostal",
@@ -186,7 +188,7 @@ export const PRESETS = Object.freeze({
     filenamePrefix: "Hiller-Nunn-Dostal-Scantrons",
     assign: assignHillerNunnDostal,
     lastYearSummary: "Optional: last year's roster (sets the Dostal pile for Statistics students)",
-    lastYearHint: "A Statistics student who took Precalculus before goes in the Dostal Calculus pile; otherwise Dostal Precalculus. Paste last year's roster and the app matches names to decide. Anyone it can't decide is left for you to pick.",
+    lastYearHint: "A Statistics student who took Precalculus before goes in the Dostal Calculus pile; otherwise Dostal Precalculus. Paste last year's roster and the app matches names to decide. Anyone it can't decide starts in Dostal Precalculus and is highlighted for you to check.",
     printNote:
       "Sort the printed sheets into 4 piles (Hiller, Nunn, Dostal Precalculus, Dostal Calculus); the packet is already in that order.",
   }),
@@ -211,6 +213,7 @@ export function nameKey(name) {
 export function parseQuickRoster(text, { teamDigit = null } = {}) {
   const students = [];
   let schoolName = null;
+  let skipped = 0;
   const seen = new Set();
   for (const rawLine of String(text ?? "").split(/\r?\n/)) {
     const line = rawLine.trim();
@@ -221,45 +224,139 @@ export function parseQuickRoster(text, { teamDigit = null } = {}) {
       continue;
     }
     const tokens = [...line.matchAll(ID_TOKEN)];
-    if (tokens.length === 0) continue;
+    if (tokens.length === 0) { skipped += 1; continue; }
     const ids = tokens.map((m) => m[1] + m[2] + m[3]);
     const current = ids[0];
     const previous = ids.slice(1).filter((x) => x.slice(0, 8) !== current.slice(0, 8));
     let name = line.slice(0, tokens[0].index).replace(DIVISION_WORDS, "");
     name = name.replace(/^["']|["',;\t\s]+$/g, "").replace(/^"|"$/g, "").trim();
-    if (!name) continue;
+    if (!name) { skipped += 1; continue; }
     const id = teamDigit == null ? current : current.slice(0, 8) + teamDigit;
     const key = nameKey(name) + id;
     if (seen.has(key)) continue;
     seen.add(key);
-    students.push({ name, id, sourceId: current, previousIds: [...new Set(previous)] });
+    students.push({ name, id, sourceId: current, srcKey: nameKey(name) + current, previousIds: [...new Set(previous)] });
   }
-  return { schoolName, students };
+  return { schoolName, students, skipped };
 }
 
-/** Map of nameKey -> list of 8th digits, from last year's roster text. */
+/**
+ * Last year's roster: nameKey -> one entry per student with that name, each the
+ * list of division digits (last year's ID plus any older IDs on the line).
+ */
 export function previousDigitsByName(text) {
   const map = new Map();
   for (const s of parseQuickRoster(text).students) {
     const k = nameKey(s.name);
+    if (!k) continue;
     if (!map.has(k)) map.set(k, []);
-    map.get(k).push(s.sourceId[7]);
+    map.get(k).push([s.sourceId[7], ...s.previousIds.map((x) => x[7])]);
   }
   return map;
 }
 
+const NEEDS_ID = "Type a name and 9-digit ID";
+const DUP_NOTE = "Another student has the same name, so last year's roster was not used. Check this student";
+
 /**
- * Build rows for the review table.
- * @returns {Array<{name,id,pile,choices,reason,eligible,division}>}
+ * Work out one row from the sponsor's data, keeping their edits.
+ * An explicit previous ID on the roster line wins; otherwise last year's roster
+ * is matched by name only when the name is unique in both rosters.
+ */
+export function assignRow(preset, s, lastYear = new Map(), nameCounts = new Map()) {
+  const keep = { srcKey: s.srcKey, typed: s.typed, off: s.off, sel: s.sel };
+  const previousIds = [...(s.previousIds ?? [])];
+  const plain = { ...keep, name: s.name ?? "", id: s.id ?? "", previousIds, prevDigits: [],
+    choices: [], allowedPiles: [], topicsFor: undefined, check: false, dupName: false, manualPile: undefined };
+  if (!/^\d{9}$/.test(plain.id)) return { ...plain, eligible: false, pile: null, reason: NEEDS_ID };
+  const k = nameKey(plain.name);
+  const explicit = previousIds.map((x) => String(x)[7]).filter(Boolean);
+  const matches = (!explicit.length && k && lastYear.get(k)) || [];
+  const dupName = matches.length > 1 || (matches.length === 1 && (nameCounts.get(k) ?? 1) > 1);
+  const prevDigits = explicit.length ? explicit : matches.length === 1 && !dupName ? matches[0] : [];
+  const row = { ...plain, prevDigits, ...preset.assign(plain.id, prevDigits) };
+  row.allowedPiles ??= [];
+  row.check = Boolean(row.check) || dupName;
+  row.dupName = dupName;
+  if (dupName) row.reason = `${row.reason}. ${DUP_NOTE}`;
+  if (s.manualPile && row.eligible && row.allowedPiles.includes(s.manualPile)) {
+    Object.assign(row, { pile: s.manualPile, manualPile: s.manualPile, check: false, reason: "Set by you" });
+  }
+  return row;
+}
+
+/**
+ * Build (or rebuild) rows for the review table from students or existing rows.
+ * Existing rows keep their edits: name, ID, left out, ticked, piles set by hand.
  */
 export function buildRows(preset, students, lastYear = new Map()) {
-  return students.map((s) => {
-    const prevDigits = [
-      ...s.previousIds.map((x) => x[7]),
-      ...(lastYear.get(nameKey(s.name)) ?? []),
-    ];
-    return { name: s.name, id: s.id, prevDigits, ...preset.assign(s.id, prevDigits) };
+  const nameCounts = new Map();
+  for (const s of students) {
+    const k = nameKey(s.name);
+    if (k) nameCounts.set(k, (nameCounts.get(k) ?? 0) + 1);
+  }
+  return students.map((s) => assignRow(preset, s, lastYear, nameCounts));
+}
+
+/**
+ * Read the roster again without losing edits: students already in the list keep
+ * their changes, students typed in by hand stay, lines removed from the roster go.
+ * @returns {{students: object[], added: number, kept: number}}
+ */
+export function mergeRoster(oldRows, students) {
+  const old = new Map(oldRows.filter((r) => r.srcKey).map((r) => [r.srcKey, r]));
+  let kept = 0;
+  const merged = students.map((s) => {
+    const o = old.get(s.srcKey);
+    if (!o) return s;
+    kept += 1;
+    return { ...s, name: o.name, id: o.id, previousIds: o.previousIds ?? s.previousIds,
+      off: o.off, sel: o.sel, manualPile: o.manualPile };
   });
+  const typed = oldRows.filter((r) => !r.srcKey && r.typed);
+  return { students: [...merged, ...typed], added: students.length - kept, kept };
+}
+
+/** Set one test for the ticked rows that may take it; others are left alone. */
+export function applyBulkTest(rows, test) {
+  let changed = 0, skipped = 0;
+  for (const r of rows.filter((x) => x.sel)) {
+    if (!r.eligible || !(r.allowedPiles ?? []).includes(test)) { skipped += 1; continue; }
+    Object.assign(r, { pile: test, manualPile: test, check: false, reason: "Set by you", off: false });
+    changed += 1;
+  }
+  return { changed, skipped };
+}
+
+/** Shift-click: tick or untick every row from `from` to `to`, clamped to the list. */
+export function tickRange(rows, from, to, checked) {
+  if (rows.length === 0) return 0;
+  const clamp = (n) => Math.min(rows.length - 1, Math.max(0, n));
+  const end = clamp(to);
+  const start = Number.isInteger(from) && from >= 0 && from < rows.length ? from : end;
+  const [a, b] = [Math.min(start, end), Math.max(start, end)];
+  for (let i = a; i <= b; i += 1) rows[i].sel = checked;
+  return b - a + 1;
+}
+
+/**
+ * State: for each topic round, who gets no test code (blank), who can't take the
+ * chosen test (mismatch, also blank) and who gets no sheet (none).
+ */
+export function stateSheetGaps(rows, topicChoice = {}) {
+  const gaps = Object.fromEntries(STATE_ROUNDS.map(({ group }) => [group, { blank: [], mismatch: [], none: [] }]));
+  for (const r of rows) {
+    if (r.off || !r.eligible || !r.pile) continue;
+    const sheets = stateSheets(r, topicChoice);
+    if (!sheets.length) continue;
+    STATE_ROUNDS.forEach(({ group }, i) => {
+      const s = sheets.find((x) => x.kind === i + 1);
+      if (!s) gaps[group].none.push(r.name);
+      else if (s.mismatch) gaps[group].mismatch.push(r.name);
+      else if (s.blank) gaps[group].blank.push(r.name);
+    });
+  }
+  return gaps;
 }
 
 /** Page jobs for pdf.js, sorted by pile then name; ineligible rows dropped. */
@@ -270,10 +367,15 @@ export function rowsToJobs(preset, rows, schoolName, topicChoice = {}) {
   };
   if (preset.sheets) {
     // Multi-sheet presets (State): all Individuals by division, then each round.
+    // Within a round, sheets with a test code come first, grouped by the actual
+    // test, then the name-and-ID sheets (blank code) together under the round label.
+    const within = (a, b) => (a.s.kind === 0
+      ? order(a.r.pile) - order(b.r.pile)
+      : (a.s.testCode === "") - (b.s.testCode === "") || a.s.testName.localeCompare(b.s.testName));
     return rows
       .filter((r) => !r.off && r.eligible && r.pile)
       .flatMap((r) => preset.sheets(r, topicChoice).map((s) => ({ r, s })))
-      .sort((a, b) => a.s.kind - b.s.kind || order(a.r.pile) - order(b.r.pile) || a.r.name.localeCompare(b.r.name))
+      .sort((a, b) => a.s.kind - b.s.kind || within(a, b) || a.r.name.localeCompare(b.r.name))
       .map(({ r, s }) => ({
         studentName: r.name,
         stateId: s.id,

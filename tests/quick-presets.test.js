@@ -18,14 +18,24 @@ test("division digit picks the Hiller/Nunn/Dostal pile", () => {
   assert.equal(chi.eligible, false);
 });
 
-test("Statistics students need a choice unless last year settles it", () => {
-  const open = assignHillerNunnDostal("123400160");
-  assert.equal(open.pile, null);
-  assert.deepEqual(open.choices, [NDH_PILES.DOSTAL_PRECALC, NDH_PILES.DOSTAL_CALC]);
-  assert.equal(assignHillerNunnDostal("123400160", ["4"]).pile, NDH_PILES.DOSTAL_CALC);
-  assert.equal(assignHillerNunnDostal("123400160", ["5"]).pile, NDH_PILES.DOSTAL_CALC);
-  assert.equal(assignHillerNunnDostal("123400160", ["3"]).pile, NDH_PILES.DOSTAL_PRECALC);
-  assert.equal(assignHillerNunnDostal("123400160", ["6"]).pile, null);
+test("Statistics: prior Precalculus -> Dostal Calculus, lower -> Precalculus, unknown -> Precalculus to check", () => {
+  // Took Precalculus or Calculus before: Dostal Calculus, nothing to check.
+  for (const prev of [["4"], ["5"], ["3", "4"]]) {
+    const r = assignHillerNunnDostal("123400160", prev);
+    assert.equal(r.pile, NDH_PILES.DOSTAL_CALC);
+    assert.ok(!r.check);
+  }
+  // Only lower levels before: Dostal Precalculus, nothing to check.
+  const lower = assignHillerNunnDostal("123400160", ["3"]);
+  assert.equal(lower.pile, NDH_PILES.DOSTAL_PRECALC);
+  assert.ok(!lower.check);
+  // No history (or only Statistics before): Dostal Precalculus, flagged for the sponsor.
+  for (const prev of [[], ["6"]]) {
+    const open = assignHillerNunnDostal("123400160", prev);
+    assert.equal(open.pile, NDH_PILES.DOSTAL_PRECALC);
+    assert.equal(open.check, true);
+    assert.deepEqual(open.choices, [NDH_PILES.DOSTAL_PRECALC, NDH_PILES.DOSTAL_CALC]);
+  }
 });
 
 const ROSTER = `Roster: Example High School #1234
@@ -130,4 +140,117 @@ test("bulk Set test can only move a student to a test their division allows", ()
   for (const pile of [NDH_PILES.NUNN, NDH_PILES.DOSTAL_PRECALC, NDH_PILES.DOSTAL_CALC]) {
     assert.ok(!assignHillerNunnDostal("123400110").allowedPiles.includes(pile));
   }
+});
+
+/* ---- Review fixes (Nov 2026) ---- */
+import { applyBulkTest, tickRange, mergeRoster, stateSheetGaps } from "../src/presets.js";
+
+test("bulk Set test on a mixed list changes only students allowed that test", () => {
+  const { students } = parseQuickRoster(ROSTER, { teamDigit: "0" });
+  const rows = buildRows(ndh, students);
+  rows.forEach((r) => { r.sel = true; });
+  const before = rows.map((r) => r.pile);
+  const { changed, skipped } = applyBulkTest(rows, NDH_PILES.DOSTAL_CALC);
+  // Calculus (already there) and Statistics may take Dostal Calculus; Geo, Alg II, Alg I may not.
+  assert.equal(changed, 2);
+  assert.equal(skipped, 3);
+  assert.equal(rows.find((r) => r.name === "Moe, Kim").pile, NDH_PILES.DOSTAL_CALC);
+  assert.equal(rows.find((r) => r.name === "Moe, Kim").check, false);
+  rows.forEach((r, i) => { if (!["Moe, Kim", "Poe, Yi"].includes(r.name)) assert.equal(r.pile, before[i]); });
+  // Test codes stay blank on the scantrons.
+  assert.ok(rowsToJobs(ndh, rows, "S").every((j) => j.testCode === "" && j.blankTestCode));
+});
+
+test("an explicit previous ID beats a name match; duplicate names are flagged, not matched", () => {
+  const lastYear = previousDigitsByName(
+    "Moe, Kim Precalculus 1234 004 41 1234 004 42 1234 004 40\n" +
+    "Twin, Al Precalculus 1234 008 41 1234 008 42 1234 008 40\n" +
+    "Twin, Al Algebra II 1234 009 31 1234 009 32 1234 009 30");
+  const rows = buildRows(ndh, [
+    // Previous ID on the line says Algebra II, so the name match (Precalculus) is ignored.
+    { name: "Moe, Kim", id: "123400460", previousIds: ["123400430"] },
+    // Two "Twin, Al" last year: no match, highlighted.
+    { name: "Twin, Al", id: "123400860", previousIds: [] },
+    // Unique on both sides: matched.
+    { name: "Solo, Bo", id: "123401060", previousIds: [] },
+    { name: "Same, Cy", id: "123401160", previousIds: [] },
+    { name: "Same, Cy", id: "123401260", previousIds: [] },
+  ], new Map([...lastYear, ["solobo", [["4"]]], ["samecy", [["5"]]]]));
+  const by = (n) => rows.filter((r) => r.name === n);
+  assert.equal(by("Moe, Kim")[0].pile, NDH_PILES.DOSTAL_PRECALC);
+  assert.ok(!by("Moe, Kim")[0].check);
+  assert.equal(by("Twin, Al")[0].dupName, true);
+  assert.equal(by("Twin, Al")[0].check, true);
+  assert.equal(by("Solo, Bo")[0].pile, NDH_PILES.DOSTAL_CALC);
+  assert.ok(!by("Solo, Bo")[0].dupName);
+  // Same name twice this year: last year's single entry is not applied to either.
+  assert.ok(by("Same, Cy").every((r) => r.dupName && r.pile === NDH_PILES.DOSTAL_PRECALC));
+});
+
+test("reading the roster again keeps edits, hand-typed students and piles set by hand", () => {
+  const { students } = parseQuickRoster(ROSTER, { teamDigit: "0" });
+  let rows = buildRows(ndh, students);
+  rows.find((r) => r.name === "Doe, Jane").name = "Doe, Janet";
+  rows.find((r) => r.name === "Loe, Sam").off = true;
+  rows.find((r) => r.name === "Moe, Kim").manualPile = NDH_PILES.DOSTAL_CALC;
+  rows.push({ typed: true, name: "New, Pat", id: "123409920", previousIds: [] });
+  const again = parseQuickRoster(ROSTER, { teamDigit: "0" }).students;
+  const { students: merged, kept, added } = mergeRoster(rows, again);
+  assert.equal(kept, 5);
+  assert.equal(added, 0);
+  rows = buildRows(ndh, merged);
+  assert.ok(rows.some((r) => r.name === "Doe, Janet"));
+  assert.ok(!rows.some((r) => r.name === "Doe, Jane"));
+  assert.equal(rows.find((r) => r.name === "Loe, Sam").off, true);
+  assert.equal(rows.find((r) => r.name === "Moe, Kim").pile, NDH_PILES.DOSTAL_CALC);
+  assert.equal(rows.find((r) => r.name === "New, Pat").pile, NDH_PILES.NUNN);
+  // Switching competition recomputes from the same rows, edits included.
+  const st = buildRows(state, rows);
+  assert.ok(st.some((r) => r.name === "Doe, Janet"));
+  assert.equal(st.find((r) => r.name === "Loe, Sam").off, true);
+  // A manual Dostal pile is not a State test, so it is dropped there.
+  assert.equal(st.find((r) => r.name === "Moe, Kim").pile, "Statistics Individual");
+});
+
+test("roster reading reports lines it skipped", () => {
+  const r = parseQuickRoster(`${ROSTER}\nnot a student line\nNo ID here, Bob`, { teamDigit: "0" });
+  assert.equal(r.students.length, 5);
+  // Two column-header lines plus the two junk lines (the Roster: line is the school).
+  assert.equal(r.skipped, 4);
+});
+
+test("shift-click range is clamped and survives a shorter list", () => {
+  const rows = [{}, {}, {}].map((x) => ({ ...x, sel: false }));
+  assert.equal(tickRange(rows, 0, 2, true), 3);
+  assert.ok(rows.every((r) => r.sel));
+  // A stale anchor past the end ticks only the clicked row.
+  rows.forEach((r) => { r.sel = false; });
+  assert.equal(tickRange(rows, 7, 1, true), 1);
+  assert.deepEqual(rows.map((r) => r.sel), [false, true, false]);
+  assert.equal(tickRange([], 0, 3, true), 0);
+});
+
+test("State: who gets a no-code or missing round sheet is listed", () => {
+  const rows = buildRows(state, [
+    { name: "Ann", id: "123400120" },
+    { name: "Ben", id: "123400740" },
+  ]);
+  const gaps = stateSheetGaps(rows, { round_1: { alpha: "round-1-alpha-equations-inequalities" }, round_2: { theta: TOPIC_NONE } });
+  assert.deepEqual(gaps.round_1.blank, ["Ann"]);
+  assert.deepEqual(gaps.round_2.none, ["Ann"]);
+  assert.deepEqual(gaps.round_2.blank, ["Ben"]);
+  assert.deepEqual(gaps.round_1.mismatch, []);
+});
+
+test("State: each round lists coded sheets by test first, then the no-code sheets", () => {
+  const rows = buildRows(state, [
+    { name: "Ann", id: "123400120" },
+    { name: "Zed", id: "123400740" },
+    { name: "Cal", id: "123400850" },
+  ]);
+  const jobs = rowsToJobs(state, rows, "S", { round_1: { alpha: "round-1-alpha-equations-inequalities" } });
+  const round1 = jobs.slice(3, 6);
+  // Old order put the Theta (blank) sheet first because Theta comes first in division order.
+  assert.deepEqual(round1.map((j) => [j.studentName, j.testCode]), [["Zed", "341"], ["Ann", ""], ["Cal", ""]]);
+  assert.deepEqual(jobs.slice(0, 3).map((j) => j.studentName), ["Ann", "Zed", "Cal"]);
 });

@@ -31,6 +31,11 @@
           <input id="school" placeholder="Filled in from the roster">
         </label>
       </div>
+      <div id="schoolPick" class="warn pickschool" hidden>
+        <span>The roster says a different school. Which name goes on the scantrons?</span>
+        <button id="schoolUseRoster" type="button"></button>
+        <button id="schoolKeep" type="button"></button>
+      </div>
     </section>
 
     <section class="card">
@@ -40,7 +45,9 @@
       <div class="row">
         <label class="file">Or open a file <input id="rosterFile" type="file" accept=".pdf,.csv,.tsv,.txt"></label>
         <button id="read" class="primary">Read roster</button>
+        <button id="addRow" type="button" class="add">Add a student by hand</button>
       </div>
+      <p id="readStatus" class="status" role="status"></p>
       <details id="lastYearBox">
         <summary id="lastYearSummary">Optional: last year's roster</summary>
         <p class="hint" id="lastYearHint"></p>
@@ -73,7 +80,6 @@
           <tbody id="rows"></tbody>
         </table>
       </div>
-      <button id="addRow" class="add">Add student</button>
     </section>
 
     <section class="card" id="printCard" hidden>
