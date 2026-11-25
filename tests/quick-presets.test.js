@@ -117,3 +117,17 @@ test("State: packet prints all Individuals first, then each round", () => {
   assert.ok(jobs.slice(n).every((j) => j.testCode === "" && j.blankTestCode));
   for (const j of jobs) normalizePageJob(j);
 });
+
+test("bulk Set test can only move a student to a test their division allows", () => {
+  assert.deepEqual(assignHillerNunnDostal("123400110").allowedPiles, [NDH_PILES.HILLER]);
+  assert.deepEqual(assignHillerNunnDostal("123400230").allowedPiles, [NDH_PILES.NUNN]);
+  assert.deepEqual(assignHillerNunnDostal("123400330").allowedPiles, [NDH_PILES.NUNN]);
+  assert.deepEqual(assignHillerNunnDostal("123400440").allowedPiles, [NDH_PILES.DOSTAL_PRECALC]);
+  assert.deepEqual(assignHillerNunnDostal("123400550").allowedPiles, [NDH_PILES.DOSTAL_CALC]);
+  assert.deepEqual(assignHillerNunnDostal("123400660").allowedPiles,
+    [NDH_PILES.DOSTAL_PRECALC, NDH_PILES.DOSTAL_CALC]);
+  assert.deepEqual(assignHillerNunnDostal("123400990").allowedPiles, []);
+  for (const pile of [NDH_PILES.NUNN, NDH_PILES.DOSTAL_PRECALC, NDH_PILES.DOSTAL_CALC]) {
+    assert.ok(!assignHillerNunnDostal("123400110").allowedPiles.includes(pile));
+  }
+});

@@ -226,7 +226,7 @@ function renderBulk(p) {
 function applyTest(p, test) {
   let changed = 0, skipped = 0;
   for (const r of rows.filter((x) => x.sel)) {
-    const ok = r.eligible && (p.sheets ? (r.allowedPiles ?? []).includes(test) : true);
+    const ok = r.eligible && (r.allowedPiles ?? []).includes(test);
     if (!ok) { skipped += 1; continue; }
     r.pile = test; r.reason = "Set by you"; r.off = false; changed += 1;
   }

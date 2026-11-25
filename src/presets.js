@@ -45,9 +45,19 @@ export const NDH_PILE_ORDER = Object.freeze([
  * Decide the Hiller/Nunn/Dostal test for one student.
  * @param {string} id nine-digit FAMAT ID (current year)
  * @param {string[]} previousDigits 8th digits of last year's IDs, if known
- * @returns {{pile: string|null, choices: string[], reason: string, eligible: boolean}}
+ * @returns {{pile: string|null, choices: string[], allowedPiles: string[], reason: string, eligible: boolean}}
+ * allowedPiles lists the only tests this student may be moved to (bulk "Set test"),
+ * so an Algebra I student can never be put in a Dostal pile.
  */
 export function assignHillerNunnDostal(id, previousDigits = []) {
+  const result = assignHndBase(id, previousDigits);
+  const allowedPiles = !result.eligible ? []
+    : result.choices.length ? [...result.choices]
+    : result.pile ? [result.pile] : [];
+  return { ...result, allowedPiles };
+}
+
+function assignHndBase(id, previousDigits) {
   const digit = String(id ?? "")[7];
   const division = DIVISION_BY_DIGIT[digit] ?? null;
   const base = { division, choices: [], eligible: true };
