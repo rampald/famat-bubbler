@@ -212,6 +212,20 @@ export function regionalSheet(row, codes = {}) {
 }
 
 export const PRESETS = Object.freeze({
+  "hiller-nunn-dostal": Object.freeze({
+    id: "hiller-nunn-dostal",
+    label: "Hiller / Nunn / Dostal (December mail-in)",
+    testDate: "2026-12-02",
+    teamDigit: "0",
+    blankTestCode: true,
+    pileOrder: NDH_PILE_ORDER,
+    filenamePrefix: "Hiller-Nunn-Dostal-Scantrons",
+    assign: assignHillerNunnDostal,
+    lastYearSummary: "Optional: last year's roster (sets the Dostal pile for Statistics students)",
+    lastYearHint: "A Statistics student who took Precalculus before goes in the Dostal Calculus pile; otherwise Dostal Precalculus. Paste last year's roster and the app matches names to decide. Anyone it can't decide starts in Dostal Precalculus and is highlighted for you to check.",
+    printNote:
+      "Sort the printed sheets into 4 piles (Hiller, Nunn, Dostal Precalculus, Dostal Calculus); the packet is already in that order.",
+  }),
   "regional-invitational": Object.freeze({
     id: "regional-invitational",
     label: "Regional / Invitational (regular season)",
@@ -245,20 +259,6 @@ export const PRESETS = Object.freeze({
     lastYearHint: "Students may not test down from last year's level. Paste last year's roster and the app matches names to apply that rule.",
     printNote:
       "The packet prints every Individual sheet first (grouped by division), then the Round 1 sheets, then the Round 2 sheets. Each round is grouped by test, with the no-code sheets last.",
-  }),
-  "hiller-nunn-dostal": Object.freeze({
-    id: "hiller-nunn-dostal",
-    label: "Hiller / Nunn / Dostal (December mail-in)",
-    testDate: "2026-12-02",
-    teamDigit: "0",
-    blankTestCode: true,
-    pileOrder: NDH_PILE_ORDER,
-    filenamePrefix: "Hiller-Nunn-Dostal-Scantrons",
-    assign: assignHillerNunnDostal,
-    lastYearSummary: "Optional: last year's roster (sets the Dostal pile for Statistics students)",
-    lastYearHint: "A Statistics student who took Precalculus before goes in the Dostal Calculus pile; otherwise Dostal Precalculus. Paste last year's roster and the app matches names to decide. Anyone it can't decide starts in Dostal Precalculus and is highlighted for you to check.",
-    printNote:
-      "Sort the printed sheets into 4 piles (Hiller, Nunn, Dostal Precalculus, Dostal Calculus); the packet is already in that order.",
   }),
 });
 
