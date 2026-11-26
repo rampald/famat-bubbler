@@ -31,7 +31,7 @@ test("student ID bubble centers retain the established 2018.B calibration", () =
 });
 
 test("test codes preserve every digit, including leading zeroes", () => {
-  for (const code of ["000", "007", "111", "623", "999"]) {
+  for (const code of ["000", "007", "231", "453", "999"]) {
     const marks = getTestCodeGeometry(code);
     assert.equal(marks.map(({ digit }) => digit).join(""), code);
     assert.equal(marks.length, 3);
@@ -64,16 +64,16 @@ test("page-job expansion creates one immutable job per explicit assignment", () 
       stateId: "123456780",
       school: "Example High School",
       tests: [
-        { code: "111", name: "Theta Individual" },
-        { code: "411", name: "Theta Applications (Theta)" },
-        { code: "421", name: "Equations and Inequalities (Theta)" },
+        { code: "231", name: "Theta Individual" },
+        { code: "331", name: "Theta Applications (Theta)" },
+        { code: "431", name: "Equations and Inequalities (Theta)" },
       ],
     },
     {
       studentName: "Katherine Johnson",
       studentId: "123456790",
       schoolName: "Example High School",
-      assignments: [{ testCode: "222", testName: "Alpha Individual" }],
+      assignments: [{ testCode: "241", testName: "Alpha Individual" }],
     },
   ];
 
@@ -83,10 +83,10 @@ test("page-job expansion creates one immutable job per explicit assignment", () 
   assert.deepEqual(
     jobs.map(({ studentName, testCode }) => [studentName, testCode]),
     [
-      ["Ada Lovelace", "111"],
-      ["Ada Lovelace", "411"],
-      ["Ada Lovelace", "421"],
-      ["Katherine Johnson", "222"],
+      ["Ada Lovelace", "231"],
+      ["Ada Lovelace", "331"],
+      ["Ada Lovelace", "431"],
+      ["Katherine Johnson", "241"],
     ],
   );
   assert.ok(Object.isFrozen(jobs));
@@ -145,9 +145,9 @@ test("renderer adds each later page before drawing and never leaves a trailing p
     schoolName: "Example High School",
   };
   const jobs = [
-    { ...base, testName: "Theta Individual", testCode: "111" },
-    { ...base, testName: "Theta Applications (Theta)", testCode: "411" },
-    { ...base, testName: "Equations and Inequalities (Theta)", testCode: "421" },
+    { ...base, testName: "Theta Individual", testCode: "231" },
+    { ...base, testName: "Theta Applications (Theta)", testCode: "331" },
+    { ...base, testName: "Equations and Inequalities (Theta)", testCode: "431" },
   ];
 
   const doc = await generateScantronPdf({ jobs, templateImage, jsPDFCtor: FakeJsPDF });
@@ -199,7 +199,7 @@ test("long official labels are reduced to fit without truncating their text", as
         stateId: "123401240",
         schoolName,
         testName,
-        testCode: "821",
+        testCode: "402",
       },
     ],
     templateImage: { decode: async () => {} },
@@ -211,7 +211,7 @@ test("long official labels are reduced to fit without truncating their text", as
   assert.ok(doc.log.some(([operation, value]) => operation === "text" && value === schoolName));
   assert.ok(
     doc.log.some(
-      ([operation, value]) => operation === "text" && value === `${testName} (821)`,
+      ([operation, value]) => operation === "text" && value === `${testName} (402)`,
     ),
   );
 });
@@ -231,7 +231,7 @@ test("all jobs are validated before the renderer draws its first page", async ()
           stateId: "12345678",
           schoolName: "Example High School",
           testName: "Theta Individual",
-          testCode: "111",
+          testCode: "231",
         },
       ],
       templateImage: { decode: async () => {} },

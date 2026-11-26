@@ -25,12 +25,12 @@ test("State Individual comes from the course on the IDs", () => {
   const rs = rows();
   assert.match(row(rs, "Able, Ann").pile, /Theta/);
   assert.match(row(rs, "Cole, Cam").pile, /Alpha/);
-  assert.match(row(rs, "Dunn, Dee").pile, /Calculus/);
-  assert.match(row(rs, "Ezra, Eve").pile, /Calculus/, "Statistics-only starts in Calculus");
+  assert.match(row(rs, "Dunn, Dee").pile, /Statistics/, "registered in Statistics: starts in Statistics");
+  assert.ok(row(rs, "Dunn, Dee").allowedPiles.some((x) => /Calculus/.test(x)), "and may switch to Calculus");
+  assert.match(row(rs, "Ezra, Eve").pile, /Statistics/);
+  assert.match(row(rs, "Fox, Fay").pile, /Statistics/, "Geometry + Statistics starts in Statistics");
   assert.ok(row(rs, "Ezra, Eve").allowedPiles.some((x) => /Theta/.test(x)), "Statistics-only is not held to a level");
-  assert.match(row(rs, "Fox, Fay").pile, /Theta/, "Geometry + Statistics is Theta by course");
-  assert.ok(row(rs, "Dunn, Dee").allowedPiles.some((x) => /Statistics/.test(x)), "Calculus student may switch to Statistics");
-  assert.ok(!row(rs, "Cole, Cam").allowedPiles.some((x) => /Theta/.test(x)), "no testing down");
+    assert.ok(!row(rs, "Cole, Cam").allowedPiles.some((x) => /Theta/.test(x)), "no testing down");
 });
 
 test("topic menus never go below the course and list easiest first, Open last", () => {
@@ -56,10 +56,15 @@ test("rounds start on the student's own division and print with that code", () =
   assert.equal(ann.length, 3);
   assert.equal(STATE_TEST_BY_ID.get(row(rs, "Able, Ann").topicDefaults.round_1).division, "theta");
   assert.ok(ann.every((s) => s.id.slice(0, 8) === "99990013"), "one State ID on all three sheets");
-  assert.equal(STATE_TEST_BY_ID.get(row(rs, "Ezra, Eve").topicDefaults.round_1).division, "mu");
-  assert.ok(divisions(row(rs, "Ezra, Eve").topicOptions.round_1).includes("theta"), "Statistics-only may pick any level");
+  assert.equal(STATE_TEST_BY_ID.get(row(rs, "Ezra, Eve").topicDefaults.round_1).division, "open");
   const fay = stateSheets(row(rs, "Fox, Fay"));
-  assert.equal(fay[0].id[7], "2", "Geometry ID, not the Statistics ID");
+  assert.ok(fay.every((s) => s.id[7] === "6"), "registered Statistics ID on all three sheets");
+  assert.equal(STATE_TEST_BY_ID.get(row(rs, "Fox, Fay").topicDefaults.round_1).division, "open");
+  const eve = row(rs, "Ezra, Eve");
+  eve.pile = "Calculus Individual";
+  assert.ok(stateSheets(eve).every((s) => s.id.slice(0, 8) === "99990056"), "Statistics-only on Calculus keeps the Statistics ID");
+  const cam = row(rs, "Cole, Cam");
+  assert.ok(stateSheets(cam).every((s) => s.id[7] === "4"), "no Statistics line: course ID");
 });
 
 test("a student's pick is used, survives a re-read, and a pick they may not take prints a blank code", () => {

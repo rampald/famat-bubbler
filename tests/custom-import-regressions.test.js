@@ -130,7 +130,7 @@ test("a header-only CSV remains a blocking batch source", () => {
   const validCsv = parseDelimitedRegistration(
     [
       "Student Name,State ID,Individual,Round 1,Round 2,School",
-      "Ana,123400130,111,411,421,Example High School",
+      "Ana,123400130,231,331,431,Example High School",
     ].join("\n"),
   );
   const merged = mergeParsedSources([
@@ -153,8 +153,8 @@ test("partial row-level school metadata is not promoted into a file-wide default
   const parsed = parseDelimitedRegistration(
     [
       "Student Name,State ID,Individual,Round 1,Round 2,School",
-      "Ana,123400130,111,411,421,Example High School",
-      "Bill,567800130,111,411,421,",
+      "Ana,123400130,231,331,431,Example High School",
+      "Bill,567800130,231,331,431,",
     ].join("\n"),
   );
 

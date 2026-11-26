@@ -93,8 +93,8 @@ export const STATE_ELIGIBILITY_CHART = Object.freeze({
   3: Object.freeze(["theta", "alpha", "mu", "statistics"]),
   4: Object.freeze(["alpha", "mu", "statistics"]),
   5: Object.freeze(["mu", "statistics"]),
-  // Derek, Nov 26, 2026: a Statistics-only student is not held to a level and
-  // starts in Calculus.
+  // Derek, Nov 26, 2026: a Statistics student is not held to a level; they
+  // start in Statistics and may switch to any Individual.
   6: Object.freeze(["theta", "alpha", "mu", "statistics"]),
   9: Object.freeze(["chi", "statistics"]),
 });
@@ -286,7 +286,7 @@ export function evaluateDivisionEligibility({
       }
     }
   } else if (scheme === "state") {
-    registeredDivision = idDigit === "6" ? "mu" : idDigit ? STATE_DIVISION_BY_ID_DIGIT[idDigit] ?? null : null;
+    registeredDivision = idDigit ? STATE_DIVISION_BY_ID_DIGIT[idDigit] ?? null : null;
     chartRow = idDigit ? STATE_ELIGIBILITY_CHART[idDigit] ?? null : null;
     const ranks = [];
     if (idDigit && LADDER_RANK_BY_ID_DIGIT[idDigit] !== undefined) ranks.push(LADDER_RANK_BY_ID_DIGIT[idDigit]);
@@ -479,7 +479,9 @@ export function idForTest(baseId, test, profile) {
     digit = test.idDigit ?? REGIONAL_DIVISION_DIGITS[test.division] ?? null;
   } else if (scheme === "state") {
     const digits = STATE_ID_DIGITS_BY_DIVISION[test.division] ?? [];
-    digit = digits.includes(id[7]) ? id[7] : digits.length === 1 ? digits[0] : null;
+    // A Statistics ID stays as registered on any Individual (Derek, Nov 26, 2026):
+    // never print an ID famat.org did not issue.
+    digit = id[7] === "6" ? "6" : digits.includes(id[7]) ? id[7] : digits.length === 1 ? digits[0] : null;
   }
   return digit ? `${id.slice(0, 7)}${digit}${id[8]}` : id;
 }

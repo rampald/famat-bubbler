@@ -26,9 +26,10 @@ test("full builder prints each famat.org student once, with State rounds from th
   assert.ok(parsed.warnings.some((w) => w.code === "MERGED_SAME_STUDENT"));
   assert.equal(p.jobs.length, 9);
   const dee = p.jobs.filter((j) => j.studentName === "Dunn, Dee").map((j) => j.testName);
-  assert.deepEqual(dee.sort(), ["Area & Volume (Mu)", "Calculus Applications (Mu)", "Calculus Individual"].sort());
+  assert.ok(dee.includes("Statistics Individual"), "registered in Statistics: starts in Statistics");
+  assert.equal(parsed.records.find((r) => r.studentName === "Dunn, Dee").stateId[7], "6", "with the registered Statistics ID");
   const eve = p.jobs.filter((j) => j.studentName === "Ezra, Eve").map((j) => j.testName);
-  assert.ok(eve.includes("Calculus Individual"), "Statistics-only starts in Calculus");
+  assert.ok(eve.includes("Statistics Individual"));
 });
 
 test("full builder Hiller / Nunn / Dostal: one sheet per student, Statistics defaults to Dostal - Calculus", () => {

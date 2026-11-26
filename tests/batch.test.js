@@ -19,7 +19,7 @@ function parsedResult(records, overrides = {}) {
 test("CSV parser accepts optional school metadata and Round 3 aliases", () => {
   const friendly = parseDelimitedRegistration([
     "School,School Code,Student Name,State ID,Individual,Round 1,Round 2,Round 3",
-    "  Example   High School  ,0 1 2 3,Jamie Doe,012300130,Alpha Individual,512,522,Team Event A",
+    "  Example   High School  ,0 1 2 3,Jamie Doe,012300130,Alpha Individual,342,442,Team Event A",
   ].join("\n"));
 
   assert.deepEqual(friendly.errors, []);
@@ -32,7 +32,7 @@ test("CSV parser accepts optional school metadata and Round 3 aliases", () => {
 
   const compactAliases = parseDelimitedRegistration([
     "School Name,schoolcode,student_name,state_id,individual_test,round_1_test,round_2_test,round3_test",
-    "Second School,9876,Alex Kim,987600240,Alpha Individual,513,523,Team Event B",
+    "Second School,9876,Alex Kim,987600240,Alpha Individual,343,443,Team Event B",
   ].join("\n"));
   assert.deepEqual(compactAliases.errors, []);
   assert.deepEqual(compactAliases.warnings, []);
@@ -47,8 +47,8 @@ test("batch merge removes exact duplicates and retains both source provenances",
       studentName: "Jamie Doe",
       stateId: "123400130",
       individualTest: "Alpha Individual",
-      round1Test: "512",
-      round2Test: "522",
+      round1Test: "342",
+      round2Test: "442",
       round3Test: "Team Event A",
       division: "alpha",
       source: { format: "csv", line: 2 },
@@ -96,7 +96,7 @@ test("batch merge combines complementary records and recognizes equivalent test 
       stateId: "1 2 3 4 0 0 1 3 0",
       individualTest: "Alpha Individual",
       round1Test: "Analytic Geometry",
-      round2Test: "522",
+      round2Test: "442",
       round3Test: "Team Event A",
       division: "alpha",
       source: { format: "csv", line: 2 },
@@ -113,7 +113,7 @@ test("batch merge combines complementary records and recognizes equivalent test 
   assert.equal(batch.records.length, 1);
   assert.equal(batch.conflicts.length, 0);
   assert.equal(batch.records[0].round1Test, "Analytic Geometry");
-  assert.equal(batch.records[0].round2Test, "522");
+  assert.equal(batch.records[0].round2Test, "442");
   assert.equal(batch.records[0].round3Test, "Team Event A");
   assert.equal(batch.duplicates[0].kind, "complementary");
   assert.ok(batch.warnings.some((issue) => issue.code === "DUPLICATE_STUDENT_MERGED"));
@@ -125,8 +125,8 @@ test("batch merge blocks materially conflicting records and retains both snapsho
       studentName: "Jamie Doe",
       stateId: "123400130",
       individualTest: "Theta Individual",
-      round1Test: "411",
-      round2Test: "421",
+      round1Test: "331",
+      round2Test: "431",
       round3Test: "Team Event A",
       division: "theta",
     }],
@@ -137,8 +137,8 @@ test("batch merge blocks materially conflicting records and retains both snapsho
       studentName: "Janet Doe",
       stateId: "123400130",
       individualTest: "Alpha Individual",
-      round1Test: "512",
-      round2Test: "522",
+      round1Test: "342",
+      round2Test: "442",
       round3Test: "Team Event B",
       division: "alpha",
     }],

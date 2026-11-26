@@ -521,7 +521,7 @@ const LEGACY_TEST_FIELDS = Object.freeze([
   ["optional6Test", null],
 ]);
 
-/** Split an Events cell such as "Precalculus Individual; 521; Geometry Open". */
+/** Split an Events cell such as "Precalculus Individual; 441; Geometry Open". */
 export function splitEventList(value) {
   if (Array.isArray(value)) return value.map((item) => String(item ?? "").trim()).filter(Boolean);
   return String(value ?? "")
@@ -627,7 +627,7 @@ function applyCourseEligibility(record, profileIdValue, eligibility, selectedTes
         );
       }
     }
-  } else if (profileIdValue === "state" && eligibility.idDigit === "6") {
+  } else if (profileIdValue === "state" && eligibility.registeredDivision === "statistics") {
     const level = normalizeDivision(record.eligibilityBasis);
     const rank = TOPIC_DIVISION_RANK[level];
     if (rank === undefined) return;

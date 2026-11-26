@@ -97,16 +97,17 @@ function assignHndBase(id, previousDigits) {
  * State Convention. Everything comes from the student's famat.org IDs.
  * The course is the highest course among the IDs, leaving out Statistics
  * (Geometry/Algebra II = Theta, Precalculus = Alpha, Calculus = Mu, middle
- * school = Chi); a student listed only for Statistics starts in Calculus.
+ * school = Chi); a student listed only for Statistics is Statistics.
  * The Individual defaults to the course's Individual; the menu offers the
  * others the Sponsors' Guide chart allows (Statistics for anyone in Theta and up).
+ * Anyone registered in Statistics starts on the Statistics Individual and the
+ * Open statistics topic tests, with their Statistics ID (Derek, Nov 26, 2026).
  * Topic tests: "restricted to the levels indicated on the test. A student may
  * move up, but not down" (2027 letter), judged from the course, not from the
  * Individual picked. Each student has a Round 1 and a Round 2 menu, easiest
  * division first, hardest last, then Open. Round 1 and 2 start on the first
- * test of the student's own division; the sponsor changes them in the menu.
- * A Statistics-only student is not held to a level and starts in Calculus
- * (Individual and both rounds), per Derek, Nov 26, 2026.
+ * test of the student's own division (Open statistics tests for a Statistics-
+ * only student); the sponsor changes them in the menu.
  * ------------------------------------------------------------------------- */
 
 const STATE_ORDER = ["chi", "theta", "alpha", "mu", "statistics"];
@@ -147,15 +148,17 @@ export function assignState(id, previousDigits = [], also = []) {
   const allowed = ev.allowedDivisions.map(stateIndividual).filter(Boolean)
     .sort((a, b) => STATE_ORDER.indexOf(a.division) - STATE_ORDER.indexOf(b.division));
   const division = DIVISION_BY_DIGIT[digit] ?? null;
-  // A Statistics-only student starts in Calculus (Derek, Nov 26, 2026) and may pick any level.
-  const ownDivision = digit === "6" ? "mu" : STATE_DIVISION_BY_DIGIT[digit];
-  const own = stateIndividual(ownDivision);
+  // Anyone registered in Statistics starts in Statistics (Derek, Nov 26, 2026),
+  // with the Open statistics topic tests; they can switch.
+  const statsFirst = [String(id ?? ""), ...also.map(String)].some((x) => x[7] === "6");
+  const statistics = stateIndividual("statistics");
+  const own = statsFirst && allowed.includes(statistics) ? statistics : stateIndividual(STATE_DIVISION_BY_DIGIT[digit]);
   const individual = own && allowed.includes(own) ? own : defaultIndividualForEligibility(ev, STATE_TEST_CATALOG);
   // Topic tests the course allows (move up, never down), in menu order.
   const topicOptions = Object.fromEntries(STATE_ROUNDS.map(({ group }) => [group,
     STATE_TEST_CATALOG.filter((t) => t.group === group && t.active !== false && testAvailability(t, ev).allowed)
       .sort(topicSort).map((t) => t.id)]));
-  const ownTopic = ownDivision;
+  const ownTopic = own === statistics || STATE_DIVISION_BY_DIGIT[digit] === "statistics" ? "open" : STATE_DIVISION_BY_DIGIT[digit];
   const topicDefaults = Object.fromEntries(STATE_ROUNDS.map(({ group }) => {
     const opts = topicOptions[group].map((x) => STATE_TEST_BY_ID.get(x));
     const first = opts.find((t) => t.division === ownTopic) ?? opts.find((t) => t.division !== "open") ?? opts[0];
@@ -175,7 +178,7 @@ export function assignState(id, previousDigits = [], also = []) {
     topicDefaults,
     topicsFor: () => topicOptions,
     reason: individual
-      ? `${division}: ${individual.name}. Topic tests: ${digit === "6" ? "any level" : `${topicGroupLabel(ownTopic)} or harder, or Open`}`
+      ? `${division}: ${individual.name}. Topic tests: ${digit === "6" ? "any level" : `${STATE_DIVISION_BY_DIGIT[digit] ? topicGroupLabel(STATE_DIVISION_BY_DIGIT[digit]) : "any"} or harder, or Open`}`
       : `Choose the Individual: ${ev.issues.map((i) => i.message).join(" ")}`,
   };
 }

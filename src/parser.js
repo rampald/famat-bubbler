@@ -673,10 +673,8 @@ export function mergeSameStudentLines(records, divisionScheme, warnings = [], { 
       const row = assignState(String(keep.stateId), [], also);
       const ind = row.eligible && row.pile
         ? [...STATE_TEST_BY_ID.values()].find((t) => t.group === "individual" && t.name === row.pile) : null;
-      // A single line keeps what the parser read from it, except a Statistics line,
-      // which starts in Calculus (Derek, Nov 26, 2026).
-      const statisticsLine = String(keep.stateId)[7] === "6" && record.individualTest === "statistics-individual";
-      if (ind && group.length === 1 && record.individualTest && record.individualTest !== ind.id && !statisticsLine) {
+      // A single line keeps what the parser read from it; only its rounds are filled.
+      if (ind && group.length === 1 && record.individualTest && record.individualTest !== ind.id) {
         // Division words and ID disagree: leave the record as read.
       } else if (ind) {
         const sheets = stateSheets(row);

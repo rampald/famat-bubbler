@@ -57,10 +57,10 @@ test("header copy and controls share a centered single-column layout", () => {
 });
 
 test("State interface presents the current packet's Chi digit and Individual code", () => {
-  assert.match(indexHtml, /Chi[^.]*State-ID digit 9[^.]*Individual code 555/i);
-  assert.match(indexHtml, /Chi Individual code 555/i);
-  assert.match(appSource, /Chi uses State-ID digit 9 and Individual code 555/i);
-  assert.match(appSource, /current State packet uses Chi digit 9 and code 555/i);
+  assert.match(indexHtml, /Chi[^.]*State-ID digit 9[^.]*Individual code 291/i);
+  assert.match(indexHtml, /Chi Individual code 291/i);
+  assert.match(appSource, /Chi uses State-ID digit 9 and Individual code 291/i);
+  assert.match(appSource, /current State packet uses Chi digit 9 and code 291/i);
   assert.doesNotMatch(indexHtml, /Chi Individual[^.]*pending/i);
   assert.doesNotMatch(appSource, /Chi Individual[^.]*pending/i);
 });
