@@ -45,6 +45,10 @@ test("Hiller / Nunn / Dostal prints one sheet per student", () => {
   const pile = (n) => rows.find((r) => r.name === n).pile;
   assert.match(pile("Able, Ann"), /Nunn/);
   assert.match(pile("Dunn, Dee"), /Dostal\W+Calculus/);
+  const eve = rows.find((r) => r.name === "Ezra, Eve");
+  assert.match(eve.pile, /Dostal\W+Calculus/);
+  assert.equal(eve.check, false);
+  assert.ok(eve.choices.length > 1);
 });
 
 test("Regional prints one sheet per student, higher division first, switchable", () => {

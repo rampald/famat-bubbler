@@ -82,10 +82,10 @@ function assignHndBase(id, previousDigits) {
         return { ...base, choices, pile: NDH_PILES.DOSTAL_PRECALC,
           reason: "Statistics, no Precalculus last year (last year's ID)" };
       }
-      // No history that settles it: default to Dostal Precalculus and flag the row,
-      // so the sponsor switches anyone who took Precalculus before or is in Calculus now.
-      return { ...base, choices, pile: NDH_PILES.DOSTAL_PRECALC, check: true,
-        reason: "Statistics: set to Dostal Precalculus. Switch to Dostal Calculus if they took Precalculus before or are taking Calculus now" };
+      // No history that settles it: default to Dostal Calculus (Derek's rule).
+      // Not flagged; a sponsor can switch the student with the menu.
+      return { ...base, choices, pile: NDH_PILES.DOSTAL_CALC,
+        reason: "Statistics: set to Dostal Calculus. Switch to Dostal Precalculus if needed" };
     }
     default:
       return { ...base, eligible: false, pile: null,
@@ -222,7 +222,7 @@ export const PRESETS = Object.freeze({
     filenamePrefix: "Hiller-Nunn-Dostal-Scantrons",
     assign: assignHillerNunnDostal,
     lastYearSummary: "Optional: last year's roster (sets the Dostal pile for Statistics students)",
-    lastYearHint: "A Statistics student who took Precalculus before goes in the Dostal Calculus pile; otherwise Dostal Precalculus. Paste last year's roster and the app matches names to decide. Anyone it can't decide starts in Dostal Precalculus and is highlighted for you to check.",
+    lastYearHint: "A Statistics student who took Precalculus before goes in the Dostal Calculus pile; otherwise Dostal Precalculus. Paste last year's roster and the app matches names to decide. Anyone it can't decide starts in Dostal Calculus; switch them with the menu if needed.",
     printNote:
       "Sort the printed sheets into 4 piles (Hiller, Nunn, Dostal Precalculus, Dostal Calculus); the packet is already in that order.",
   }),
