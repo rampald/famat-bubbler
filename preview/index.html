@@ -2,106 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>FAMAT Scantrons - Quick print</title>
-  <link rel="stylesheet" href="quick.css">
-  <script src="vendor/jspdf.umd.min.js"></script>
-  <script>
-    window.FAMAT_PDFJS_PATHS = Object.freeze({ library: "./vendor/pdf.mjs", worker: "./vendor/pdf.worker.mjs" });
-  </script>
-  <script type="module" src="src/quick.js"></script>
+  <title>FAMAT Scantrons</title>
+  <meta http-equiv="refresh" content="0; url=../">
+  <script>location.replace("../" + location.search);</script>
 </head>
 <body>
-  <header>
-    <img src="assets/famat-gator-orange-blue.png" alt="" class="logo">
-    <div>
-      <h1>FAMAT Scantrons</h1>
-      <p class="sub">Paste your roster, check the list, print.</p>
-      <p class="sub" style="color:#b45309;font-weight:600">Preview for review. The live Bubbler page has not changed.</p>
-    </div>
-    <a class="full" href="builder.html">Full builder (State, Regional, National, Custom)</a>
-  </header>
-
-  <main>
-    <section class="card">
-      <div class="row">
-        <label>Competition
-          <select id="preset"></select>
-        </label>
-        <label class="grow">School name
-          <input id="school" placeholder="Filled in from the roster">
-        </label>
-      </div>
-      <div id="schoolPick" class="warn pickschool" hidden>
-        <span>The roster says a different school. Which name goes on the scantrons?</span>
-        <button id="schoolUseRoster" type="button"></button>
-        <button id="schoolKeep" type="button"></button>
-      </div>
-    </section>
-
-    <section class="card">
-      <h2>1. Paste your famat.org roster</h2>
-      <p class="hint">Copy the roster page or the Students page from famat.org (or open the roster PDF) and paste it all here, header lines included. You can paste the high school and middle school rosters together. A CSV with Name and ID also works.</p>
-      <textarea id="roster" rows="8" spellcheck="false" placeholder="Roster: Your School #1234&#10;Student Division Team 1 ID Team 2 ID No Team ID&#10;Last, First Geometry 1234 001 21 1234 001 22 1234 001 20"></textarea>
-      <div class="row">
-        <label class="file">Or open a file <input id="rosterFile" type="file" accept=".pdf,.csv,.tsv,.txt"></label>
-        <button id="read" class="primary">Read roster</button>
-        <button id="addRow" type="button" class="add">Add a student by hand</button>
-      </div>
-      <p id="readStatus" class="status" role="status"></p>
-      <details id="lastYearBox">
-        <summary id="lastYearSummary">Optional: last year's roster</summary>
-        <p class="hint" id="lastYearHint"></p>
-        <textarea id="lastYear" rows="4" spellcheck="false"></textarea>
-        <label class="file">Or open last year's file <input id="lastYearFile" type="file" accept=".pdf,.csv,.tsv,.txt"></label>
-      </details>
-    </section>
-
-    <section class="card" id="reviewCard" hidden>
-      <h2>2. Check the list</h2>
-      <div id="summary" class="chips"></div>
-      <p id="needs" class="warn" hidden></p>
-      <div id="topics" class="topics" hidden>
-        <h3>Topic tests</h3>
-        <p class="hint">Pick each division's topic test once, or leave "Name and ID only" so students bubble the test code at the test.</p>
-        <div id="topicGrid"></div>
-      </div>
-      <div id="codes" class="topics" hidden>
-        <h3>Test codes (optional)</h3>
-        <p class="hint">Type the three-digit code the host gave for a test, or leave it blank so students bubble it at the test. Codes are not saved, since each competition has its own.</p>
-        <div id="codeGrid" class="codegrid"></div>
-      </div>
-      <div id="bulk" class="bulk" hidden>
-        <b id="bulkCount"></b>
-        <select id="bulkTest" aria-label="Set test for selected"></select>
-        <select id="bulkTeam" aria-label="Set team for selected" hidden>
-          <option value="">Set team to...</option>
-          <option value="1">Team 1</option>
-          <option value="2">Team 2</option>
-          <option value="0">No Team</option>
-        </select>
-        <button id="bulkOut" type="button">Not going</button>
-        <button id="bulkIn" type="button">Going</button>
-        <button id="bulkDelete" type="button" class="danger">Delete</button>
-        <button id="bulkClear" type="button" class="link">Clear</button>
-      </div>
-      <p class="hint tip">Tick students to change or delete several at once. Shift-click to tick a range.</p>
-      <div class="tablewrap">
-        <table>
-          <thead><tr><th class="pick"><input type="checkbox" id="pickAll" aria-label="Select all"></th><th>Name</th><th>FAMAT ID</th><th>Test</th><th>Going</th></tr></thead>
-          <tbody id="rows"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="card" id="printCard" hidden>
-      <h2>3. Print</h2>
-      <button id="make" class="primary big">Make scantrons</button>
-      <p id="printNote" class="hint"></p>
-      <p class="hint">Print at Actual size (100%), single-sided, on a good laser printer. Check that the corner marks and bubbles print dark before printing the whole stack.</p>
-      <p id="status" class="status" role="status"></p>
-    </section>
-  </main>
-  <footer>All roster processing happens on this computer. Nothing is uploaded.</footer>
+  <p>The Bubbler moved to <a href="../">the main page</a>.</p>
 </body>
 </html>
