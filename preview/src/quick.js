@@ -1,7 +1,7 @@
 // Quick print page (Bubbler 2.4.0): pick a competition, paste a roster, print.
 import {
   PRESETS, parseQuickRoster, previousDigitsByName, buildRows, mergeRoster, rowsToJobs,
-  applyBulkTest, tickRange, stateSheetGaps, nameKey,
+  applyBulkTest, tickRange, stateSheetGaps, nameKey, regionalSecond, regionalSecondClash,
   STATE_TEST_BY_ID, STATE_ROUNDS, TOPIC_BLANK, stateTopic, topicGroupLabel,
 } from "./presets.js";
 import { downloadScantronPdf } from "./pdf.js";
@@ -22,6 +22,10 @@ let lastPicked = null;
 let pendingSchool = null; // roster's school name when it differs from the saved one
 // Regional: the host's three-digit code per test, typed for this competition only (not remembered).
 let testCodes = {};
+// Regional: Open tests the sponsor names for this competition: [{ key, name, code }].
+// Who takes each one is kept on the rows (row.opens holds the keys). Not remembered.
+let opens = [];
+let openSeq = 0;
 
 function preset() { return PRESETS[$("preset").value]; }
 function lastYearMap() { return $("lastYear").value.trim() ? previousDigitsByName($("lastYear").value) : new Map(); }
@@ -188,6 +192,24 @@ function render() {
       test.textContent = r.eligible ? (r.pile ?? "") : r.id ? "Not printed" : "Type the ID";
     }
     if (p.topicRounds && r.eligible && !r.off && r.pile) test.append(topicMenus(p, r));
+    if (p.regionalSheets && r.eligible && !r.off && r.pile) {
+      // Registered in two divisions the guide lets them take together: a second Individual.
+      const second = regionalSecond(r);
+      if (second) {
+        const lab = document.createElement("label"); lab.className = "second";
+        const tick = document.createElement("input"); tick.type = "checkbox"; tick.checked = !r.noSecond;
+        tick.setAttribute("aria-label", `${r.name} also takes ${second.name}`);
+        tick.addEventListener("change", () => { r.noSecond = !tick.checked; render(); });
+        lab.append(tick, ` Also ${second.name}`);
+        test.append(lab);
+      }
+      const mine = opens.filter((o) => (r.opens ?? []).includes(o.key));
+      if (mine.length) {
+        const tag = document.createElement("span"); tag.className = "opentag";
+        tag.textContent = `Open: ${mine.map(openName).join("; ")}`;
+        test.append(tag);
+      }
+    }
     // Going: everyone starts ticked; untick a student who isn't competing.
     const del = document.createElement("td"); del.className = "del going";
     const going = document.createElement("input"); going.type = "checkbox"; going.checked = !r.off;
@@ -201,9 +223,15 @@ function render() {
 
   renderBulk(p);
   const counts = new Map(p.pileOrder.map((k) => [k, 0]));
-  rows.forEach((r) => { if (!r.off && r.eligible && r.pile) counts.set(r.pile, (counts.get(r.pile) ?? 0) + 1); });
-  $("summary").replaceChildren(...[...counts].map(([k, n]) => {
-    const s = document.createElement("span"); s.className = "chip"; s.innerHTML = `${k}: <b>${n}</b>`; return s;
+  // Regional counts every sheet (second Individuals and Opens too); others count students.
+  const regionalJobs = p.regionalSheets ? rowsToJobs(p, rows, "x", {}, testCodes, opens) : null;
+  if (regionalJobs) regionalJobs.forEach((j) => { if (counts.has(j.testName)) counts.set(j.testName, counts.get(j.testName) + 1); });
+  else rows.forEach((r) => { if (!r.off && r.eligible && r.pile) counts.set(r.pile, (counts.get(r.pile) ?? 0) + 1); });
+  const chips = [...counts];
+  if (regionalJobs) opens.forEach((o) => chips.push([openName(o), openTakers(o).length]));
+  $("summary").replaceChildren(...chips.map(([k, n]) => {
+    const s = document.createElement("span"); s.className = "chip"; s.append(`${k}: `);
+    const b = document.createElement("b"); b.textContent = String(n); s.append(b); return s;
   }));
   const live = rows.filter((r) => !r.off && r.eligible);
   const need = live.filter((r) => !r.pile).length;
@@ -217,13 +245,23 @@ function render() {
   if (statsCheck) msgs.push(`${plural(statsCheck, "Statistics student")} start${statsCheck === 1 ? "s" : ""} in Dostal Precalculus. Switch to Dostal Calculus anyone who took Precalculus before or is taking Calculus now (highlighted; printing isn't blocked).`);
   if (dupCheck) msgs.push(`${plural(dupCheck, "student")} share${dupCheck === 1 ? "s" : ""} a name with another student, so last year's roster wasn't used for them. Check their test (highlighted).`);
   if (out) msgs.push(`${plural(out, "student")} won't get a scantron (not going, or no ID; crossed out).`);
+  if (regionalJobs) {
+    const two = live.filter((r) => r.pile && regionalSecond(r));
+    const both = two.filter((r) => !r.noSecond).length;
+    if (two.length) msgs.push(`${plural(two.length, "student")} registered in two divisions can take both Individuals; ${both} will get both sheets. Untick "Also ..." under the test to print only one.`);
+    const clash = two.filter((r) => !r.noSecond && regionalSecondClash(r));
+    if (clash.length) msgs.push(`${someNames(clash.map((r) => r.name))}: both Individuals are in the same round of the regional schedule. Check that this competition allows it.`);
+    const unused = opens.filter((o) => openTakers(o).length === 0);
+    if (unused.length) msgs.push(`No student has ${unused.map(openName).join("; ")} yet. Tick students, then press Give to ticked.`);
+  }
   $("topics").hidden = true;
-  const badCodes = renderCodes(p, counts);
+  const badCodes = [...renderCodes(p, counts), ...renderOpens(p)];
   if (badCodes.length) msgs.push(`A test code has 3 digits. Fix or clear the code for ${badCodes.join(", ")}.`);
   if (p.sheets) msgs.push(...gapMessages(p));
   $("needs").hidden = msgs.length === 0;
   $("needs").replaceChildren(...msgs.map((m) => { const d = document.createElement("div"); d.textContent = m; return d; }));
-  const total = p.sheets ? rowsToJobs(p, rows, "x").length : [...counts.values()].reduce((a, b) => a + b, 0);
+  const total = regionalJobs ? regionalJobs.length
+    : p.sheets ? rowsToJobs(p, rows, "x").length : [...counts.values()].reduce((a, b) => a + b, 0);
   $("reviewCard").hidden = rows.length === 0;
   $("printCard").hidden = rows.length === 0;
   $("make").disabled = need > 0 || total === 0 || Boolean(pendingSchool) || badCodes.length > 0;
@@ -318,6 +356,76 @@ function renderCodes(p, counts) {
   return present.filter((name) => (testCodes[name] ?? "") !== "" && !/^\d{3}$/.test(testCodes[name]));
 }
 
+/* ---- Regional Open tests: named by the sponsor, given to ticked students ---- */
+function openName(o) { return o.name.trim() || `Open test ${opens.indexOf(o) + 1}`; }
+function openTakers(o) { return rows.filter((r) => !r.off && r.eligible && r.pile && (r.opens ?? []).includes(o.key)); }
+
+/** Draw the Open tests list. Returns the Opens whose code is not 3 digits. */
+function renderOpens(p) {
+  $("opens").hidden = !p.regionalSheets || rows.length === 0;
+  if ($("opens").hidden) return [];
+  const list = $("openList");
+  const keys = opens.map((o) => o.key).join("|");
+  if (list.dataset.keys !== keys) {
+    list.dataset.keys = keys;
+    list.replaceChildren(...opens.map((o) => {
+      const row = document.createElement("div"); row.className = "open-row"; row.dataset.key = o.key;
+      const name = document.createElement("input"); name.className = "oname"; name.value = o.name;
+      name.placeholder = "Name, e.g. Geometry Open"; name.setAttribute("aria-label", "Open test name");
+      name.addEventListener("input", () => { o.name = name.value; });
+      name.addEventListener("change", render);
+      const code = document.createElement("input"); code.className = "ocode"; code.value = o.code;
+      code.inputMode = "numeric"; code.maxLength = 3; code.placeholder = "code";
+      code.setAttribute("aria-label", "Open test code (optional)");
+      code.addEventListener("input", () => { o.code = code.value.replace(/\D/g, ""); code.value = o.code; });
+      code.addEventListener("change", render);
+      const count = document.createElement("span"); count.className = "ocount";
+      const give = button("Give to ticked", () => setOpen(o, (r) => r.sel, true));
+      const take = button("Take from ticked", () => setOpen(o, (r) => r.sel, false));
+      const all = button("Everyone going", () => setOpen(o, () => true, true));
+      const del = button("Remove", () => {
+        opens = opens.filter((x) => x !== o);
+        rows.forEach((r) => { if (r.opens) r.opens = r.opens.filter((k) => k !== o.key); });
+        render();
+      });
+      del.className = "danger";
+      row.append(name, code, count, give, take, all, del);
+      return row;
+    }));
+  }
+  for (const row of list.children) {
+    const o = opens.find((x) => x.key === row.dataset.key);
+    row.querySelector(".ocount").textContent = plural(openTakers(o).length, "student");
+  }
+  return opens.filter((o) => o.code !== "" && !/^\d{3}$/.test(o.code)).map(openName);
+}
+
+function button(text, onClick) {
+  const b = document.createElement("button"); b.type = "button"; b.textContent = text;
+  b.addEventListener("click", onClick);
+  return b;
+}
+
+function setOpen(o, which, on) {
+  let n = 0;
+  rows.forEach((r) => {
+    if (r.off || !r.eligible || !r.pile || !which(r)) return;
+    const has = (r.opens ?? []).includes(o.key);
+    if (on && !has) { r.opens = [...(r.opens ?? []), o.key]; n += 1; }
+    if (!on && has) { r.opens = r.opens.filter((k) => k !== o.key); n += 1; }
+  });
+  if (n === 0 && !rows.some((r) => which(r))) setStatus("Tick students in the list first.");
+  else setStatus(`${openName(o)}: ${on ? "given to" : "taken from"} ${plural(n, "student")}.`);
+  render();
+}
+
+$("addOpen").addEventListener("click", () => {
+  openSeq += 1;
+  opens.push({ key: `open${openSeq}`, name: "", code: "" });
+  render();
+  $("openList").lastElementChild?.querySelector(".oname")?.focus();
+});
+
 /* ---- Tick several students, then change or delete them together ---- */
 function renderBulk(p) {
   const picked = rows.filter((r) => r.sel);
@@ -368,7 +476,7 @@ async function makePdf() {
   const p = preset();
   const school = $("school").value.trim();
   if (!school) { setStatus("Enter the school name first."); $("school").focus(); return; }
-  const jobs = rowsToJobs(p, rows, school, {}, testCodes);
+  const jobs = rowsToJobs(p, rows, school, {}, testCodes, opens);
   const safe = school.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const now = new Date();
   const date = p.testDate ?? [now.getFullYear(), now.getMonth() + 1, now.getDate()].map((n) => String(n).padStart(2, "0")).join("-");

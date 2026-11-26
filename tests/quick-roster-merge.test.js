@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { PRESETS, parseQuickRoster, buildRows, rowsToJobs, mergeRoster } from "../preview/src/presets.js";
+import { PRESETS, parseQuickRoster, buildRows, rowsToJobs, mergeRoster, regionalSecond } from "../preview/src/presets.js";
 
 // Made-up students in the famat.org roster layout: one line per student per division.
 const ROSTER = [
@@ -54,12 +54,12 @@ test("Hiller / Nunn / Dostal prints one sheet per student", () => {
 test("Regional prints one sheet per student, Statistics or higher division first, switchable", () => {
   const { p, rows, schoolName } = read("regional-invitational");
   const jobs = rowsToJobs(p, rows, schoolName);
-  assert.equal(jobs.length, 5);
+  assert.equal(jobs.length, 6, "five students, and Dee also takes Calculus");
   const dee = rows.find((r) => r.name === "Dunn, Dee");
   assert.match(dee.pile, /^Statistics/);
   assert.ok(dee.allowedPiles.some((x) => /^Calculus/.test(x)));
   assert.match(rows.find((r) => r.name === "Ezra, Eve").pile, /^Statistics/);
-  const deeJob = jobs.find((j) => JSON.stringify(j).includes("Dunn"));
+  const deeJob = jobs.find((j) => j.studentName === "Dunn, Dee" && /^Statistics/.test(j.testName));
   assert.ok(JSON.stringify(deeJob).includes("999900460"));
   assert.match(dee.reason, /Also on the roster for Statistics/);
   const ann = rows.find((r) => r.name === "Able, Ann");
@@ -85,4 +85,28 @@ test("reading the roster again keeps who is going", () => {
   const { students, kept } = mergeRoster(rows, again);
   assert.equal(kept, 5);
   assert.equal(students.find((s) => s.name === "Able, Ann").off, true);
+});
+
+test("Regional: a second Individual only for a pair famat.org registered and the guide allows", () => {
+  const { p, rows, schoolName } = read("regional-invitational");
+  const dee = rows.find((r) => r.name === "Dunn, Dee");
+  assert.equal(regionalSecond(dee).name, "Calculus Individual");
+  const deeJobs = rowsToJobs(p, rows, schoolName).filter((j) => j.studentName === "Dunn, Dee");
+  assert.deepEqual(deeJobs.map((j) => j.stateId[7]).sort(), ["5", "6"], "each sheet uses that division's registered ID");
+  assert.equal(regionalSecond(rows.find((r) => r.name === "Able, Ann")), null, "Geometry with Algebra II is not allowed as two Individuals");
+  assert.equal(regionalSecond(rows.find((r) => r.name === "Ezra, Eve")), null, "registered in one division only");
+  dee.noSecond = true;
+  assert.equal(rowsToJobs(p, rows, schoolName).length, 5);
+});
+
+test("Regional: Open tests the sponsor names print for the students given them", () => {
+  const { p, rows, schoolName } = read("regional-invitational");
+  const opens = [{ key: "a", name: "Geometry Open", code: "777" }, { key: "b", name: "Mental Math", code: "" }];
+  rows.find((r) => r.name === "Able, Ann").opens = ["a", "b"];
+  rows.find((r) => r.name === "Dunn, Dee").opens = ["b"];
+  const jobs = rowsToJobs(p, rows, schoolName, {}, {}, opens);
+  assert.equal(jobs.length, 9);
+  assert.deepEqual(jobs.slice(-3).map((j) => j.testName), ["Geometry Open", "Mental Math", "Mental Math"], "Opens come last, in the order added");
+  assert.equal(jobs.find((j) => j.testName === "Geometry Open").testCode, "777");
+  assert.equal(jobs.find((j) => j.testName === "Mental Math" && j.studentName === "Dunn, Dee").stateId[7], "6", "an Open uses the first Individual's ID");
 });

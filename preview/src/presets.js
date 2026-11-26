@@ -12,8 +12,8 @@
  * a student enrolled in Calculus takes the Calculus pile.
  */
 
-import { STATE_TEST_CATALOG, REGIONAL_TEST_CATALOG } from "./catalog.js";
-import { evaluateDivisionEligibility, testAvailability, idForTest } from "./eligibility.js";
+import { STATE_TEST_CATALOG, REGIONAL_TEST_CATALOG, REGIONAL_DIVISION_BY_ID_DIGIT } from "./catalog.js";
+import { evaluateDivisionEligibility, testAvailability, idForTest, sameRoundIndividualPairs } from "./eligibility.js";
 import { defaultIndividualForEligibility } from "./model.js";
 
 export const DIVISION_BY_DIGIT = Object.freeze({
@@ -241,10 +241,16 @@ export function assignRegional(id, previousDigits = [], also = []) {
       reason: division === "Chi" ? "Chi students have no Regional Individual test"
         : ev.issues.map((i) => i.message).join(" ") || "No Regional Individual for this ID" };
   }
+  // The Individuals of every division famat.org registered this student in
+  // (a second Individual is offered only among these; Derek, Nov 26, 2026).
+  const registeredPiles = [...new Set([String(id ?? ""), ...also.map(String)]
+    .map((x) => regionalIndividual(REGIONAL_DIVISION_BY_ID_DIGIT[x[7]]))
+    .filter((t) => t && allowed.includes(t)).map((t) => t.name))];
   return {
     division,
     eligible: true,
     pile: individual?.name ?? null,
+    registeredPiles,
     choices: individual ? [] : allowed.map((t) => t.name),
     allowedPiles: allowed.map((t) => t.name),
     reason: individual
@@ -259,6 +265,54 @@ export function regionalSheet(row, codes = {}) {
   if (!test) return null;
   const code = String(codes[test.name] ?? "").trim();
   return { testName: test.name, testCode: /^\d{3}$/.test(code) ? code : "", id: idForTest(row.id, test, "regional") };
+}
+
+// Sponsors' Guide: two Individuals only when one is Statistics, Precalculus or Calculus.
+const UPPER_FOR_TWO = Object.freeze(["statistics", "precalculus", "calculus"]);
+
+/**
+ * Regional: the second Individual this row may take, or null. Only a division
+ * famat.org registered the student in, other than the first test, and only a
+ * pair the Sponsors' Guide allows.
+ */
+export function regionalSecond(row) {
+  const first = REGIONAL_TEST_BY_NAME.get(row.pile);
+  if (!first) return null;
+  const other = (row.registeredPiles ?? []).map((n) => REGIONAL_TEST_BY_NAME.get(n)).find((t) => t && t !== first);
+  if (!other) return null;
+  return UPPER_FOR_TWO.includes(first.division) || UPPER_FOR_TWO.includes(other.division) ? other : null;
+}
+
+/** Regional: the two Individuals share a scheduled round (a warning, not a block). */
+export function regionalSecondClash(row) {
+  const first = REGIONAL_TEST_BY_NAME.get(row.pile);
+  const second = regionalSecond(row);
+  return Boolean(first && second && sameRoundIndividualPairs([first.division, second.division]).length);
+}
+
+/**
+ * Every Regional sheet for a row: the first Individual, the second one when the
+ * student is registered in both divisions (unless the sponsor turned it off),
+ * then one sheet per Open test the sponsor gave them. Each Individual uses its
+ * division's registered ID; an Open sheet uses the first Individual's ID.
+ * `opens` is [{ key, name, code }], typed by the sponsor for this competition.
+ */
+export function regionalSheets(row, codes = {}, opens = []) {
+  const first = regionalSheet(row, codes);
+  if (!first) return [];
+  const sheets = [{ ...first, kind: "individual" }];
+  const second = regionalSecond(row);
+  if (second && !row.noSecond) {
+    const code = String(codes[second.name] ?? "").trim();
+    sheets.push({ kind: "individual", testName: second.name, testCode: /^\d{3}$/.test(code) ? code : "", id: idForTest(row.id, second, "regional") });
+  }
+  opens.forEach((o, i) => {
+    if (!(row.opens ?? []).includes(o.key)) return;
+    const code = String(o.code ?? "").trim();
+    sheets.push({ kind: "open", openIndex: i, testName: String(o.name ?? "").trim() || `Open test ${i + 1}`,
+      testCode: /^\d{3}$/.test(code) ? code : "", id: first.id });
+  });
+  return sheets;
 }
 
 export const PRESETS = Object.freeze({
@@ -288,11 +342,12 @@ export const PRESETS = Object.freeze({
     filenamePrefix: "Regional-Invitational-Scantrons",
     assign: assignRegional,
     sheet: regionalSheet,
+    regionalSheets,
     chooseWhat: "the Individual",
     lastYearSummary: "Optional: last year's roster (applies the Sponsors' Guide previous-year rules)",
     lastYearHint: "Students may not test down from last year's level or repeat a one-year division. Paste last year's roster and the app matches names to apply those rules. Works for regionals, invitationals and statewides.",
     printNote:
-      "The packet is grouped by test (Algebra I first, Statistics last). Each sheet's ID uses that test's division digit and keeps the student's team digit.",
+      "The packet is grouped by test (Algebra I first, Statistics last, then each Open test). Each Individual sheet's ID uses that test's division digit and keeps the student's team digit; an Open sheet uses the ID on the student's first Individual.",
   }),
   "state-convention": Object.freeze({
     id: "state-convention",
@@ -407,6 +462,7 @@ const DUP_NOTE = "Another student has the same name, so last year's roster was n
  */
 export function assignRow(preset, s, lastYear = new Map(), nameCounts = new Map()) {
   const keep = { srcKey: s.srcKey, typed: s.typed, off: s.off, sel: s.sel, also: [...(s.also ?? [])],
+    noSecond: s.noSecond, opens: s.opens ? [...s.opens] : undefined,
     topics: s.topics ? { ...s.topics } : undefined };
   const previousIds = [...(s.previousIds ?? [])];
   const plain = { ...keep, name: s.name ?? "", id: s.id ?? "", previousIds, prevDigits: [],
@@ -512,11 +568,28 @@ export function stateSheetGaps(rows, topicChoice = {}) {
 }
 
 /** Page jobs for pdf.js, sorted by pile then name; ineligible rows dropped. */
-export function rowsToJobs(preset, rows, schoolName, topicChoice = {}, testCodes = {}) {
+export function rowsToJobs(preset, rows, schoolName, topicChoice = {}, testCodes = {}, opens = []) {
   const order = (p) => {
     const i = preset.pileOrder.indexOf(p);
     return i < 0 ? 99 : i;
   };
+  if (preset.regionalSheets) {
+    // Regional: Individuals grouped by test (second Individuals in their test's
+    // pile), then each Open test in the order the sponsor added them.
+    const rank = (s) => (s.kind === "open" ? 100 + s.openIndex : order(s.testName));
+    return rows
+      .filter((r) => !r.off && r.eligible && r.pile)
+      .flatMap((r) => preset.regionalSheets(r, testCodes, opens).map((s) => ({ r, s })))
+      .sort((a, b) => rank(a.s) - rank(b.s) || a.r.name.localeCompare(b.r.name))
+      .map(({ r, s }) => ({
+        studentName: r.name,
+        stateId: s.id,
+        schoolName,
+        testName: s.testName,
+        testCode: s.testCode,
+        blankTestCode: s.testCode === "",
+      }));
+  }
   if (preset.sheets) {
     // Multi-sheet presets (State): all Individuals by division, then each round.
     // Within a round, sheets with a test code come first, grouped by the actual

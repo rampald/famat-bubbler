@@ -672,6 +672,14 @@ export function mergeSameStudentLines(records, divisionScheme, warnings = [], { 
       ? group.find((r) => String(r.stateId)[7] === "6") : null;
     const keep = statsLine ?? group.reduce((best, r) => (divisionRank(String(r.stateId)[7]) > divisionRank(String(best.stateId)[7]) ? r : best));
     const record = { ...keep };
+    if (divisionScheme === "regional" && assignTests && group.length > 1) {
+      // Registered in two divisions: both Individuals when the Sponsors' Guide
+      // allows the pair (one is Statistics, Precalculus or Calculus); Derek, Nov 26, 2026.
+      const other = group.find((r) => r !== keep && r.individualTest && r.individualTest !== keep.individualTest);
+      const upper = ["statistics", "precalculus", "calculus"];
+      if (keep.individualTest && other && [keep.division, other.division].some((d) => upper.includes(String(d))))
+        record.tests = [keep.individualTest, other.individualTest];
+    }
     if (divisionScheme === "state" && assignTests) {
       const also = group.filter((r) => r !== keep).map((r) => String(r.stateId));
       const row = assignState(String(keep.stateId), [], also);

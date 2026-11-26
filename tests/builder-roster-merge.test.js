@@ -46,4 +46,19 @@ test("full builder Regional: a student registered in Statistics keeps the Statis
   assert.equal(dee.stateId[7], "6");
   assert.match(String(dee.individualTest), /statistics/);
   assert.equal(parsed.records.find((r) => r.studentName === "Able, Ann").stateId[7], "3");
+  assert.equal(dee.tests.length, 2, "registered in Statistics and Calculus: both Individuals");
+  assert.equal(parsed.records.find((r) => r.studentName === "Able, Ann").tests, undefined, "Geometry with Algebra II: one Individual");
+});
+
+test("full builder Regional prints both Individuals, each with its registered ID", async () => {
+  const { REGIONAL_TEST_CATALOG } = await import("../src/catalog.js");
+  const codes = { "regional-geometry-individual": "121", "regional-algebra-2-individual": "131",
+    "regional-calculus-individual": "151", "regional-statistics-individual": "161" };
+  const prof = CONVENTION_PROFILES.regional;
+  const catalog = REGIONAL_TEST_CATALOG.map((e) => (codes[e.id] ? { ...e, code: codes[e.id], status: "operational", blocking: false } : e));
+  const parsed = parseRegistrationInput(ROSTER, { format: "roster", catalog, divisionScheme: prof.divisionScheme });
+  const p = buildPacket({ ...parsed, profile: prof, catalog, tournamentName: "Sample Regional" });
+  const dee = p.jobs.filter((j) => j.studentName === "Dunn, Dee").map((j) => `${j.testName} ${j.stateId[7]}`).sort();
+  assert.deepEqual(dee, ["Calculus Individual 5", "Statistics Individual 6"]);
+  assert.equal(p.jobs.length, 4, "Dee two, Ann one, Eve one");
 });
