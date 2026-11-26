@@ -137,8 +137,8 @@ function render() {
   const p = preset();
   const tbody = $("rows");
   tbody.replaceChildren();
-  // Clean table like the original Bubbler: Name | FAMAT ID | Test | Delete.
-  // Name and ID are editable in place; Delete greys the row out (click again to restore).
+  // Clean table like the original Bubbler: Name | FAMAT ID | Test | Going.
+  // Name and ID are editable in place; unticking Going greys the row out.
   rows.forEach((r, i) => {
     const tr = document.createElement("tr");
     const pick = document.createElement("td"); pick.className = "pick";
@@ -173,10 +173,13 @@ function render() {
       recompute(); render();
     });
     const test = document.createElement("td");
-    if (r.choices.length && r.eligible && !r.off) {
+    // A student famat.org lists for two divisions can be switched to the other one.
+    const options = r.choices.length ? r.choices
+      : (r.also?.length && (r.allowedPiles ?? []).length > 1 ? r.allowedPiles : []);
+    if (options.length && r.eligible && !r.off) {
       const sel = document.createElement("select");
       if (!r.pile) sel.append(new Option("Choose...", ""));
-      r.choices.forEach((c) => sel.append(new Option(c, c)));
+      options.forEach((c) => sel.append(new Option(c, c)));
       sel.value = r.pile ?? "";
       sel.addEventListener("change", () => {
         Object.assign(r, { pile: sel.value || null, manualPile: sel.value || undefined, check: false });
@@ -187,11 +190,13 @@ function render() {
     } else {
       test.textContent = r.eligible ? (r.pile ?? "") : r.id ? "Not printed" : "Type the ID";
     }
-    const del = document.createElement("td"); del.className = "del";
-    const x = document.createElement("button"); x.className = "x";
-    x.title = r.off ? "Put back" : "Leave out"; x.textContent = r.off ? "↺" : "✕";
-    x.addEventListener("click", () => { r.off = !r.off; render(); });
-    del.append(x);
+    // Going: everyone starts ticked; untick a student who isn't competing.
+    const del = document.createElement("td"); del.className = "del going";
+    const going = document.createElement("input"); going.type = "checkbox"; going.checked = !r.off;
+    going.setAttribute("aria-label", `${r.name} is going`);
+    going.title = r.off ? "Not going: no scantron" : "Going: gets a scantron";
+    going.addEventListener("change", () => { r.off = !going.checked; render(); });
+    del.append(going);
     tr.append(pick, name, id, test, del);
     tbody.append(tr);
   });
@@ -213,7 +218,7 @@ function render() {
     : `Choose a Dostal pile for ${plural(need, "Statistics student")} (highlighted).`);
   if (statsCheck) msgs.push(`${plural(statsCheck, "Statistics student")} start${statsCheck === 1 ? "s" : ""} in Dostal Precalculus. Switch to Dostal Calculus anyone who took Precalculus before or is taking Calculus now (highlighted; printing isn't blocked).`);
   if (dupCheck) msgs.push(`${plural(dupCheck, "student")} share${dupCheck === 1 ? "s" : ""} a name with another student, so last year's roster wasn't used for them. Check their test (highlighted).`);
-  if (out) msgs.push(`${plural(out, "student")} won't be printed (crossed out).`);
+  if (out) msgs.push(`${plural(out, "student")} won't get a scantron (not going, or no ID; crossed out).`);
   renderTopics(p);
   const badCodes = renderCodes(p, counts);
   if (badCodes.length) msgs.push(`A test code has 3 digits. Fix or clear the code for ${badCodes.join(", ")}.`);

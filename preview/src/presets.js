@@ -267,6 +267,11 @@ const ID_TOKEN = /(?<!\d)(\d{4})[\s-]?(\d{3})[\s-]?(\d{2})(?!\d)/g;
 const DIVISION_WORDS =
   /\s*[,\t;]?\s*(Algebra\s*(?:I{1,2}|1|2)|Geometry|Pre-?\s?calculus|Calculus|Statistics|Chi)\s*[,\t;]?\s*$/i;
 
+/** Which division counts as higher when one student is listed for two:
+ * Calculus over Statistics, Algebra II over Geometry, Statistics over Algebra II. */
+const DIVISION_RANK = Object.freeze({ 9: 0, 1: 1, 2: 2, 3: 3, 6: 3.5, 4: 4, 5: 5 });
+export const divisionRank = (digit) => DIVISION_RANK[String(digit)] ?? -1;
+
 /** Normalize a name for matching across rosters ("Smith, Ana" == "smith ana"). */
 export function nameKey(name) {
   return String(name ?? "").toLowerCase().replace(/\([^)]*\)/g, "").replace(/[^a-z]/g, "");
@@ -278,12 +283,16 @@ export function nameKey(name) {
  * ("Name,ID[,Previous ID]") or plain "Name  ID". Lines without an ID are skipped.
  * Team variants of the same ID collapse to one student; an ID with a different
  * 8-digit prefix on the same line is treated as a previous-year ID.
+ * famat.org lists a student once per division they are enrolled in (Geometry and
+ * Algebra II, or Calculus and Statistics). Lines with the same name and the same
+ * school + student number (first 7 digits) are one student: the row keeps the
+ * highest division's ID and remembers the others in `also`.
  */
 export function parseQuickRoster(text, { teamDigit = null } = {}) {
   const students = [];
   let schoolName = null;
   let skipped = 0;
-  const seen = new Set();
+  const byStudent = new Map();
   for (const rawLine of String(text ?? "").split(/\r?\n/)) {
     const line = rawLine.trim();
     if (!line) continue;
@@ -301,10 +310,24 @@ export function parseQuickRoster(text, { teamDigit = null } = {}) {
     name = name.replace(/^["']|["',;\t\s]+$/g, "").replace(/^"|"$/g, "").trim();
     if (!name) { skipped += 1; continue; }
     const id = teamDigit == null ? current : current.slice(0, 8) + teamDigit;
-    const key = nameKey(name) + id;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    students.push({ name, id, sourceId: current, srcKey: nameKey(name) + current, previousIds: [...new Set(previous)] });
+    const key = nameKey(name) + current.slice(0, 7);
+    const same = byStudent.get(key);
+    if (same) {
+      // Same student on another division line: keep the higher division's ID.
+      if (same.sourceId.slice(0, 8) === current.slice(0, 8)) continue;
+      const also = [...same.also, same.sourceId];
+      if (divisionRank(current[7]) > divisionRank(same.sourceId[7])) {
+        Object.assign(same, { id, sourceId: current });
+      } else {
+        also.splice(also.length - 1, 1, current);
+      }
+      same.also = [...new Set(also)].filter((x) => x.slice(0, 8) !== same.sourceId.slice(0, 8));
+      same.previousIds = [...new Set([...same.previousIds, ...previous])];
+      continue;
+    }
+    const student = { name, id, sourceId: current, srcKey: key, previousIds: [...new Set(previous)], also: [] };
+    byStudent.set(key, student);
+    students.push(student);
   }
   return { schoolName, students, skipped };
 }
@@ -319,7 +342,7 @@ export function previousDigitsByName(text) {
     const k = nameKey(s.name);
     if (!k) continue;
     if (!map.has(k)) map.set(k, []);
-    map.get(k).push([s.sourceId[7], ...s.previousIds.map((x) => x[7])]);
+    map.get(k).push([s.sourceId[7], ...s.also.map((x) => x[7]), ...s.previousIds.map((x) => x[7])]);
   }
   return map;
 }
@@ -333,7 +356,7 @@ const DUP_NOTE = "Another student has the same name, so last year's roster was n
  * is matched by name only when the name is unique in both rosters.
  */
 export function assignRow(preset, s, lastYear = new Map(), nameCounts = new Map()) {
-  const keep = { srcKey: s.srcKey, typed: s.typed, off: s.off, sel: s.sel };
+  const keep = { srcKey: s.srcKey, typed: s.typed, off: s.off, sel: s.sel, also: [...(s.also ?? [])] };
   const previousIds = [...(s.previousIds ?? [])];
   const plain = { ...keep, name: s.name ?? "", id: s.id ?? "", previousIds, prevDigits: [],
     choices: [], allowedPiles: [], topicsFor: undefined, check: false, dupName: false, manualPile: undefined };
@@ -348,6 +371,10 @@ export function assignRow(preset, s, lastYear = new Map(), nameCounts = new Map(
   row.check = Boolean(row.check) || dupName;
   row.dupName = dupName;
   if (dupName) row.reason = `${row.reason}. ${DUP_NOTE}`;
+  if (row.also.length) {
+    const others = [...new Set(row.also.map((x) => DIVISION_BY_DIGIT[x[7]]).filter(Boolean))];
+    if (others.length) row.reason = `${row.reason}. Also on the roster for ${others.join(" and ")}`;
+  }
   if (s.manualPile && row.eligible && row.allowedPiles.includes(s.manualPile)) {
     Object.assign(row, { pile: s.manualPile, manualPile: s.manualPile, check: false, reason: "Set by you" });
   }

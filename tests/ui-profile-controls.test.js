@@ -74,7 +74,7 @@ test("profile selector offers the five explicit workflows in the intended order"
 
   assert.deepEqual(
     options.map(({ value }) => value),
-    ["regional", "state", "national", "custom", "hnd"],
+    ["hnd", "regional", "state", "national", "custom"],
   );
   const stateOption = options.find(({ value }) => value === "state");
   assert.ok(stateOption, "Expected the State profile option");
