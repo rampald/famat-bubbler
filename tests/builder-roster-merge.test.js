@@ -37,3 +37,13 @@ test("full builder Hiller / Nunn / Dostal: one sheet per student, Statistics def
   assert.equal(p.jobs.length, 3);
   assert.equal(p.jobs.find((j) => j.studentName === "Ezra, Eve").testName, "Dostal - Calculus");
 });
+
+test("full builder Regional: a student registered in Statistics keeps the Statistics line", () => {
+  const prof = CONVENTION_PROFILES.regional;
+  const parsed = parseRegistrationInput(ROSTER, { format: "roster", catalog: prof.catalog, divisionScheme: prof.divisionScheme });
+  assert.equal(parsed.records.length, 3);
+  const dee = parsed.records.find((r) => r.studentName === "Dunn, Dee");
+  assert.equal(dee.stateId[7], "6");
+  assert.match(String(dee.individualTest), /statistics/);
+  assert.equal(parsed.records.find((r) => r.studentName === "Able, Ann").stateId[7], "3");
+});

@@ -51,12 +51,16 @@ test("Hiller / Nunn / Dostal prints one sheet per student", () => {
   assert.ok(eve.choices.length > 1);
 });
 
-test("Regional prints one sheet per student, higher division first, switchable", () => {
+test("Regional prints one sheet per student, Statistics or higher division first, switchable", () => {
   const { p, rows, schoolName } = read("regional-invitational");
-  assert.equal(rowsToJobs(p, rows, schoolName).length, 5);
+  const jobs = rowsToJobs(p, rows, schoolName);
+  assert.equal(jobs.length, 5);
   const dee = rows.find((r) => r.name === "Dunn, Dee");
-  assert.match(dee.pile, /^Calculus/);
-  assert.ok(dee.allowedPiles.some((x) => /^Statistics/.test(x)));
+  assert.match(dee.pile, /^Statistics/);
+  assert.ok(dee.allowedPiles.some((x) => /^Calculus/.test(x)));
+  assert.match(rows.find((r) => r.name === "Ezra, Eve").pile, /^Statistics/);
+  const deeJob = jobs.find((j) => JSON.stringify(j).includes("Dunn"));
+  assert.ok(JSON.stringify(deeJob).includes("999900460"));
   assert.match(dee.reason, /Also on the roster for Statistics/);
   const ann = rows.find((r) => r.name === "Able, Ann");
   assert.match(ann.pile, /^Algebra II/);

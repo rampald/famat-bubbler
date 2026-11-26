@@ -221,7 +221,7 @@ const regionalIndividual = (division) => REGIONAL_INDIVIDUALS.find((t) => t.divi
 export const REGIONAL_TEST_BY_NAME = new Map(REGIONAL_INDIVIDUALS.map((t) => [t.name, t]));
 export const REGIONAL_TEAM_DIGITS = Object.freeze(["0", "1", "2"]);
 
-export function assignRegional(id, previousDigits = []) {
+export function assignRegional(id, previousDigits = [], also = []) {
   const digit = String(id ?? "")[7];
   const division = DIVISION_BY_DIGIT[digit] ?? null;
   if (!REGIONAL_TEAM_DIGITS.includes(String(id ?? "")[8])) {
@@ -230,8 +230,12 @@ export function assignRegional(id, previousDigits = []) {
   }
   const previousIds = [...new Set(previousDigits.map(String))].map((d) => `${id.slice(0, 7)}${d}0`);
   const ev = evaluateDivisionEligibility({ profile: "regional", currentId: id, previousIds });
-  const individual = defaultIndividualForEligibility(ev, REGIONAL_TEST_CATALOG);
   const allowed = ev.allowedDivisions.map(regionalIndividual).filter(Boolean);
+  // Anyone registered in Statistics starts in Statistics (Derek, Nov 26, 2026); they can switch.
+  const statistics = regionalIndividual("statistics");
+  const statsFirst = [String(id ?? ""), ...also.map(String)].some((x) => x[7] === "6");
+  const individual = statsFirst && statistics && allowed.includes(statistics)
+    ? statistics : defaultIndividualForEligibility(ev, REGIONAL_TEST_CATALOG);
   if (allowed.length === 0) {
     return { division, eligible: false, pile: null, choices: [], allowedPiles: [],
       reason: division === "Chi" ? "Chi students have no Regional Individual test"

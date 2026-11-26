@@ -666,7 +666,11 @@ export function mergeSameStudentLines(records, divisionScheme, warnings = [], { 
   const out = [];
   for (const group of groups.values()) {
     merged += group.length - 1;
-    const keep = group.reduce((best, r) => (divisionRank(String(r.stateId)[7]) > divisionRank(String(best.stateId)[7]) ? r : best));
+    // At Regional a student registered in Statistics keeps the Statistics line
+    // (Derek, Nov 26, 2026); elsewhere the higher division's line is kept.
+    const statsLine = divisionScheme === "regional" && assignTests && group.length > 1
+      ? group.find((r) => String(r.stateId)[7] === "6") : null;
+    const keep = statsLine ?? group.reduce((best, r) => (divisionRank(String(r.stateId)[7]) > divisionRank(String(best.stateId)[7]) ? r : best));
     const record = { ...keep };
     if (divisionScheme === "state" && assignTests) {
       const also = group.filter((r) => r !== keep).map((r) => String(r.stateId));
