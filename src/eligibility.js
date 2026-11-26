@@ -305,26 +305,10 @@ export function evaluateDivisionEligibility({
   } else if (scheme === "hnd") {
     chartRow = idDigit ? HND_CHART[idDigit] ?? null : null;
     if (idDigit === "6") {
-      // Statistics: Dostal - Calculus if they took Precalculus or Calculus
-      // before; Dostal - Precalculus if every earlier ID is below Precalculus.
-      const digits = previous.map((entry) => entry.digit);
-      if (digits.some((digit) => digit === "4" || digit === "5")) {
-        registeredDivision = "dostal_calculus";
-      } else {
-        registeredDivision = "dostal_precalculus";
-        const allBelowPrecalculus =
-          digits.length > 0 && digits.every((digit) => digit === "1" || digit === "2" || digit === "3");
-        if (!allBelowPrecalculus) {
-          issues.push(
-            makeIssue(
-              "warning",
-              "HND_STATISTICS_CHECK",
-              "Statistics student: Dostal - Precalculus is checked. If they have already taken Precalculus, check Dostal - Calculus instead. Last year's ID under Previous Year IDs decides this automatically.",
-              "tests",
-            ),
-          );
-        }
-      }
+      // Statistics: Dostal - Calculus by default (Derek, Nov 26, 2026: "let stats
+      // default to calculus, let other people change it"); Dostal - Precalculus
+      // stays allowed.
+      registeredDivision = "dostal_calculus";
     } else {
       registeredDivision = chartRow?.length === 1 ? chartRow[0] : null;
     }

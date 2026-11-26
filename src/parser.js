@@ -1,3 +1,4 @@
+import { assignState, stateSheets, divisionRank, nameKey, STATE_TEST_BY_ID } from "../preview/src/presets.js";
 import {
   TEST_CATALOG,
   inferIndividualTestForProfile,
@@ -648,6 +649,57 @@ function parseRosterRecord(
 }
 
 /**
+ * famat.org lists a student once per division (Geometry and Algebra II, or
+ * Calculus and Statistics). Keep one record per student, the same way the quick
+ * page does: name plus the school and student digits of the ID. At State the
+ * Individual and both topic rounds come from the student's course (shared rules
+ * in preview/src/presets.js); elsewhere the higher division's line is kept.
+ */
+export function mergeSameStudentLines(records, divisionScheme, warnings = [], { assignTests = true } = {}) {
+  const groups = new Map();
+  for (const record of records) {
+    const key = `${nameKey(record.studentName)}|${String(record.stateId).slice(0, 7)}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(record);
+  }
+  let merged = 0;
+  const out = [];
+  for (const group of groups.values()) {
+    merged += group.length - 1;
+    const keep = group.reduce((best, r) => (divisionRank(String(r.stateId)[7]) > divisionRank(String(best.stateId)[7]) ? r : best));
+    const record = { ...keep };
+    if (divisionScheme === "state" && assignTests) {
+      const also = group.filter((r) => r !== keep).map((r) => String(r.stateId));
+      const row = assignState(String(keep.stateId), [], also);
+      const ind = row.eligible && row.pile
+        ? [...STATE_TEST_BY_ID.values()].find((t) => t.group === "individual" && t.name === row.pile) : null;
+      // A single line keeps what the parser read from it; only its rounds are filled.
+      if (ind && group.length === 1 && record.individualTest && record.individualTest !== ind.id) {
+        // Division words and ID disagree: leave the record as read.
+      } else if (ind) {
+        const sheets = stateSheets(row);
+        const course = group.find((r) => String(r.stateId).slice(0, 8) === row.courseId.slice(0, 8)) ?? keep;
+        Object.assign(record, {
+          stateId: sheets[0].id,
+          team1Id: course.team1Id,
+          team2Id: course.team2Id,
+          individualTest: ind.id,
+          division: ind.division,
+          round1Test: STATE_TEST_BY_ID.has(row.topicDefaults.round_1) ? row.topicDefaults.round_1 : "",
+          round2Test: STATE_TEST_BY_ID.has(row.topicDefaults.round_2) ? row.topicDefaults.round_2 : "",
+        });
+      }
+    }
+    out.push(record);
+  }
+  if (merged > 0) {
+    warnings.push(makeIssue("warning", "MERGED_SAME_STUDENT",
+      `${merged} roster line${merged === 1 ? " was" : "s were"} the same student in another division and ${merged === 1 ? "was" : "were"} merged, so each student prints once.`));
+  }
+  return out;
+}
+
+/**
  * Parse text copied from the State roster PDF.  Every nonblank, non-header
  * line is either represented as a record or reported as a warning/error.
  */
@@ -660,7 +712,7 @@ export function parseRosterText(
   } = {},
 ) {
   const lines = String(text ?? "").replace(/^\uFEFF/, "").split(/\r?\n/);
-  const records = [];
+  let records = [];
   const errors = [];
   const warnings = [];
   let schoolName = null;
@@ -763,6 +815,7 @@ export function parseRosterText(
   }
 
   flushPendingAsError();
+  records = mergeSameStudentLines(records, divisionScheme, warnings, { assignTests: inferIndividualFromDivision });
 
   if (!schoolName) {
     warnings.push(

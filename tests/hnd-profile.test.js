@@ -50,16 +50,13 @@ test("the ID's 8th digit picks the Hiller / Nunn / Dostal test", () => {
   }
 });
 
-test("Statistics students get Dostal - Calculus only after Precalculus or Calculus", () => {
-  const calc = evaluateDivisionEligibility({ profile: "hnd", currentId: "123400660", previousIds: "123400440" });
-  assert.equal(calc.defaultDivision, "dostal_calculus");
-  assert.deepEqual(calc.issues, []);
-  const precalc = evaluateDivisionEligibility({ profile: "hnd", currentId: "123400660", previousIds: "123400330" });
-  assert.equal(precalc.defaultDivision, "dostal_precalculus");
-  assert.deepEqual(precalc.issues, []);
+test("Statistics students default to Dostal - Calculus (Derek, Nov 26, 2026)", () => {
+  for (const previousIds of ["123400440", "123400330", undefined]) {
+    const e = evaluateDivisionEligibility({ profile: "hnd", currentId: "123400660", previousIds });
+    assert.equal(e.defaultDivision, "dostal_calculus");
+    assert.deepEqual(e.issues, []);
+  }
   const unknown = evaluateDivisionEligibility({ profile: "hnd", currentId: "123400660" });
-  assert.equal(unknown.defaultDivision, "dostal_precalculus");
-  assert.equal(unknown.issues[0].code, "HND_STATISTICS_CHECK");
   assert.deepEqual(unknown.allowedDivisions, ["dostal_precalculus", "dostal_calculus"]);
 });
 

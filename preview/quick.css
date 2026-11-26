@@ -83,3 +83,6 @@ td.pick input, th.pick input { width:16px; height:16px; cursor:pointer; }
 .codegrid { display: flex; flex-wrap: wrap; gap: 8px 18px; }
 .code-row { display: inline-flex; flex-direction: row; align-items: center; gap: 6px; font-weight: 600; }
 .code-row input { width: 4.5em; text-align: center; font-family: ui-monospace, Consolas, monospace; }
+
+.rounds { display:flex; flex-wrap:wrap; gap:4px 12px; margin-top:4px; font-size:.85rem; color:var(--muted); }
+.rounds select { max-width: 260px; font-size:.85rem; }

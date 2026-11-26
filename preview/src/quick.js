@@ -2,7 +2,7 @@
 import {
   PRESETS, parseQuickRoster, previousDigitsByName, buildRows, mergeRoster, rowsToJobs,
   applyBulkTest, tickRange, stateSheetGaps, nameKey,
-  STATE_TEST_BY_ID, STATE_ROUNDS, TOPIC_BLANK, TOPIC_NONE,
+  STATE_TEST_BY_ID, STATE_ROUNDS, TOPIC_BLANK, stateTopic, topicGroupLabel,
 } from "./presets.js";
 import { downloadScantronPdf } from "./pdf.js";
 import { extractPdfText } from "./pdf-import.js";
@@ -20,10 +20,6 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 let rows = [];
 let lastPicked = null;
 let pendingSchool = null; // roster's school name when it differs from the saved one
-// topicChoice[round][division] = test id, TOPIC_BLANK or TOPIC_NONE (remembered per computer).
-let topicChoice = {};
-try { topicChoice = JSON.parse(store.get("topics") ?? "{}") ?? {}; } catch { topicChoice = {}; }
-const choseThisVisit = new Set(); // "round|division" picked on this visit (others are remembered)
 // Regional: the host's three-digit code per test, typed for this competition only (not remembered).
 let testCodes = {};
 
@@ -174,8 +170,9 @@ function render() {
     });
     const test = document.createElement("td");
     // A student famat.org lists for two divisions can be switched to the other one.
+    // State: every student gets the Individual menu when more than one is allowed.
     const options = r.choices.length ? r.choices
-      : (r.also?.length && (r.allowedPiles ?? []).length > 1 ? r.allowedPiles : []);
+      : ((p.sheets || r.also?.length) && (r.allowedPiles ?? []).length > 1 ? r.allowedPiles : []);
     if (options.length && r.eligible && !r.off) {
       const sel = document.createElement("select");
       if (!r.pile) sel.append(new Option("Choose...", ""));
@@ -190,6 +187,7 @@ function render() {
     } else {
       test.textContent = r.eligible ? (r.pile ?? "") : r.id ? "Not printed" : "Type the ID";
     }
+    if (p.topicRounds && r.eligible && !r.off && r.pile) test.append(topicMenus(p, r));
     // Going: everyone starts ticked; untick a student who isn't competing.
     const del = document.createElement("td"); del.className = "del going";
     const going = document.createElement("input"); going.type = "checkbox"; going.checked = !r.off;
@@ -219,13 +217,13 @@ function render() {
   if (statsCheck) msgs.push(`${plural(statsCheck, "Statistics student")} start${statsCheck === 1 ? "s" : ""} in Dostal Precalculus. Switch to Dostal Calculus anyone who took Precalculus before or is taking Calculus now (highlighted; printing isn't blocked).`);
   if (dupCheck) msgs.push(`${plural(dupCheck, "student")} share${dupCheck === 1 ? "s" : ""} a name with another student, so last year's roster wasn't used for them. Check their test (highlighted).`);
   if (out) msgs.push(`${plural(out, "student")} won't get a scantron (not going, or no ID; crossed out).`);
-  renderTopics(p);
+  $("topics").hidden = true;
   const badCodes = renderCodes(p, counts);
   if (badCodes.length) msgs.push(`A test code has 3 digits. Fix or clear the code for ${badCodes.join(", ")}.`);
   if (p.sheets) msgs.push(...gapMessages(p));
   $("needs").hidden = msgs.length === 0;
   $("needs").replaceChildren(...msgs.map((m) => { const d = document.createElement("div"); d.textContent = m; return d; }));
-  const total = p.sheets ? rowsToJobs(p, rows, "x", topicChoice).length : [...counts.values()].reduce((a, b) => a + b, 0);
+  const total = p.sheets ? rowsToJobs(p, rows, "x").length : [...counts.values()].reduce((a, b) => a + b, 0);
   $("reviewCard").hidden = rows.length === 0;
   $("printCard").hidden = rows.length === 0;
   $("make").disabled = need > 0 || total === 0 || Boolean(pendingSchool) || badCodes.length > 0;
@@ -233,6 +231,37 @@ function render() {
     : need > 0 ? `Choose ${plural(need, p.chooseWhat ? "test" : "pile")} first`
     : badCodes.length ? "Fix the test code first" : `Make ${plural(total, "scantron")}`;
   $("printNote").textContent = p.printNote ?? "";
+}
+
+/** State: this student's Round 1 and Round 2 menus, limited to the tests they may take. */
+function topicMenus(p, r) {
+  const box = document.createElement("div"); box.className = "rounds";
+  for (const { group, label } of p.topicRounds) {
+    const lab = document.createElement("label");
+    lab.textContent = `${label.replace(" topic test", "")} `;
+    const sel = document.createElement("select");
+    sel.setAttribute("aria-label", `${label} for ${r.name}`);
+    let og = null, lastDiv = null;
+    for (const id of r.topicOptions?.[group] ?? []) {
+      const t = STATE_TEST_BY_ID.get(id);
+      if (!t) continue;
+      if (t.division !== lastDiv) {
+        og = document.createElement("optgroup"); og.label = topicGroupLabel(t.division);
+        sel.append(og); lastDiv = t.division;
+      }
+      og.append(new Option(`${t.code} ${t.name}`, t.id));
+    }
+    sel.append(new Option("Leave the test code blank", TOPIC_BLANK));
+    const current = stateTopic(r, group);
+    sel.value = [...sel.options].some((o) => o.value === current) ? current : TOPIC_BLANK;
+    sel.addEventListener("change", () => {
+      r.topics = { ...(r.topics ?? {}), [group]: sel.value };
+      render();
+    });
+    lab.append(sel);
+    box.append(lab);
+  }
+  return box;
 }
 
 /** Names list for a message: up to 5 names, then "and N more". */
@@ -243,74 +272,18 @@ function someNames(names) {
 
 /** State: say who gets no test code or no sheet in each round, before printing. */
 function gapMessages() {
-  const gaps = stateSheetGaps(rows, topicChoice);
+  const gaps = stateSheetGaps(rows);
   const printed = rows.filter((r) => !r.off && r.eligible && r.pile).length;
   const msgs = [];
   for (const { group, label } of STATE_ROUNDS) {
     const g = gaps[group];
     const round = label.replace(" topic test", "");
     if (g.mismatch.length) msgs.push(`${round}: ${someNames(g.mismatch)} can't take the chosen test (previous-year rule), so they get a name-and-ID sheet with no test code.`);
-    if (g.blank.length && g.blank.length === printed) msgs.push(`${round}: no sheet has a test code yet; students bubble it at the test, or pick the tests above.`);
+    if (g.blank.length && g.blank.length === printed) msgs.push(`${round}: no sheet has a test code yet; students bubble it at the test, or pick each student's test in the list.`);
     else if (g.blank.length) msgs.push(`${round}: ${plural(g.blank.length, "sheet")} will have no test code (${someNames(g.blank)}); students bubble it at the test.`);
     if (g.none.length) msgs.push(`${round}: no sheet for ${someNames(g.none)}.`);
   }
   return msgs;
-}
-
-/** One Round 1 / Round 2 picker per Individual division present in the list. */
-function renderTopics(p) {
-  const box = $("topics");
-  const grid = $("topicGrid");
-  grid.replaceChildren();
-  const groups = new Map(); // individual test name -> division key, names, union of allowed topic ids
-  if (p.topicRounds) {
-    for (const r of rows) {
-      if (r.off || !r.eligible || !r.pile) continue;
-      const ind = [...STATE_TEST_BY_ID.values()].find((t) => t.group === "individual" && t.name === r.pile);
-      if (!ind) continue;
-      const g = groups.get(ind.name) ?? { division: ind.division, names: [], allowed: {} };
-      g.names.push(r.name);
-      const topics = r.topicsFor ? r.topicsFor(ind) : {};
-      for (const { group } of p.topicRounds) {
-        g.allowed[group] ??= new Set();
-        (topics[group] ?? []).forEach((id) => g.allowed[group].add(id));
-      }
-      groups.set(ind.name, g);
-    }
-  }
-  box.hidden = groups.size === 0;
-  const ordered = [...groups].sort((a, b) => p.pileOrder.indexOf(a[0]) - p.pileOrder.indexOf(b[0]));
-  for (const [name, g] of ordered) {
-    const row = document.createElement("div"); row.className = "topic-row";
-    const label = document.createElement("b"); label.textContent = `${name} (${g.names.length})`;
-    row.append(label);
-    for (const { group, label: roundLabel } of p.topicRounds) {
-      const lab = document.createElement("label"); lab.textContent = `${roundLabel.replace(" topic test", "")} `;
-      const sel = document.createElement("select");
-      sel.append(new Option("Name and ID only", TOPIC_BLANK), new Option("No sheet", TOPIC_NONE));
-      [...(g.allowed[group] ?? [])].map((id) => STATE_TEST_BY_ID.get(id)).filter(Boolean)
-        .forEach((t) => sel.append(new Option(`${t.name} (${t.code})`, t.id)));
-      const current = topicChoice[group]?.[g.division] ?? TOPIC_BLANK;
-      sel.value = [...sel.options].some((o) => o.value === current) ? current : TOPIC_BLANK;
-      sel.addEventListener("change", () => {
-        topicChoice[group] = { ...(topicChoice[group] ?? {}), [g.division]: sel.value };
-        choseThisVisit.add(`${group}|${g.division}`);
-        store.set("topics", JSON.stringify(topicChoice));
-        render();
-      });
-      lab.append(sel);
-      if (sel.value !== TOPIC_BLANK && !choseThisVisit.has(`${group}|${g.division}`)) {
-        const mem = document.createElement("span"); mem.className = "remembered";
-        mem.textContent = "remembered from last time";
-        lab.append(mem);
-      }
-      row.append(lab);
-    }
-    const who = document.createElement("div"); who.className = "who";
-    who.textContent = someNames(g.names);
-    row.append(who);
-    grid.append(row);
-  }
 }
 
 /**
@@ -395,7 +368,7 @@ async function makePdf() {
   const p = preset();
   const school = $("school").value.trim();
   if (!school) { setStatus("Enter the school name first."); $("school").focus(); return; }
-  const jobs = rowsToJobs(p, rows, school, topicChoice, testCodes);
+  const jobs = rowsToJobs(p, rows, school, {}, testCodes);
   const safe = school.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const now = new Date();
   const date = p.testDate ?? [now.getFullYear(), now.getMonth() + 1, now.getDate()].map((n) => String(n).padStart(2, "0")).join("-");

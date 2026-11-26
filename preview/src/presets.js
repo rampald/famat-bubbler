@@ -94,13 +94,21 @@ function assignHndBase(id, previousDigits) {
 }
 
 /* ---------------------------------------------------------------------------
- * State Convention. The Individual comes from the ID's division through the
- * existing State eligibility engine (Sponsors' Guide chart and previous-year
- * rules). Topic rounds are chosen once per division in Quick print; the
- * default prints a name-and-ID sheet with a blank test code for each round.
+ * State Convention. Everything comes from the student's famat.org IDs.
+ * The course is the highest course among the IDs, leaving out Statistics
+ * (Geometry/Algebra II = Theta, Precalculus = Alpha, Calculus = Mu, middle
+ * school = Chi); a student listed only for Statistics is Statistics.
+ * The Individual defaults to the course's Individual; the menu offers the
+ * others the Sponsors' Guide chart allows (Statistics for anyone in Theta and up).
+ * Topic tests: "restricted to the levels indicated on the test. A student may
+ * move up, but not down" (2027 letter), judged from the course, not from the
+ * Individual picked. Each student has a Round 1 and a Round 2 menu, easiest
+ * division first, hardest last, then Open. Round 1 and 2 start on the first
+ * test of the student's own division (Open statistics tests for a Statistics-
+ * only student); the sponsor changes them in the menu.
  * ------------------------------------------------------------------------- */
 
-const STATE_ORDER = ["theta", "alpha", "mu", "statistics", "chi"];
+const STATE_ORDER = ["chi", "theta", "alpha", "mu", "statistics"];
 export const STATE_ROUNDS = Object.freeze([
   Object.freeze({ group: "round_1", label: "Round 1 topic test" }),
   Object.freeze({ group: "round_2", label: "Round 2 topic test" }),
@@ -113,49 +121,81 @@ const stateIndividual = (division) =>
   STATE_TEST_CATALOG.find((t) => t.group === "individual" && t.division === division && t.active !== false);
 export const STATE_TEST_BY_ID = new Map(STATE_TEST_CATALOG.map((t) => [t.id, t]));
 
-export function assignState(id, previousDigits = []) {
-  const digit = String(id ?? "")[7];
-  const previousIds = [...new Set(previousDigits.map(String))].map((d) => `${id.slice(0, 7)}${d}0`);
-  const ev = evaluateDivisionEligibility({ profile: "state", currentId: id, previousIds });
-  const individual = defaultIndividualForEligibility(ev, STATE_TEST_CATALOG);
-  const allowed = ev.allowedDivisions.map(stateIndividual).filter(Boolean);
+const STATE_DIVISION_BY_DIGIT = Object.freeze({ 9: "chi", 2: "theta", 3: "theta", 4: "alpha", 5: "mu", 6: "statistics" });
+const COURSE_RANK = Object.freeze({ 9: 0, 2: 1, 3: 1, 4: 2, 5: 3 });
+const TOPIC_SORT = Object.freeze({ chi: 0, theta: 1, alpha: 2, mu: 3, open: 9 });
+/** Menu order: easiest division first, hardest last, then Open; by code within a division. */
+export const topicSort = (a, b) => (TOPIC_SORT[a.division] ?? 5) - (TOPIC_SORT[b.division] ?? 5) || a.code.localeCompare(b.code);
+/** Group label for a topic test in the menu. */
+export const topicGroupLabel = (division) => ({ chi: "Chi", theta: "Theta", alpha: "Alpha", mu: "Mu", open: "Open" })[division] ?? division;
+
+/** The course ID among a student's famat.org IDs: highest course, Statistics only if nothing else. */
+export function stateCourseId(id, also = []) {
+  const ids = [String(id ?? ""), ...also.map(String)].filter((x) => /^\d{9}$/.test(x));
+  const courses = ids.filter((x) => COURSE_RANK[x[7]] !== undefined);
+  if (!courses.length) return ids[0] ?? String(id ?? "");
+  return courses.reduce((best, x) => (COURSE_RANK[x[7]] > COURSE_RANK[best[7]] ? x : best));
+}
+
+export function assignState(id, previousDigits = [], also = []) {
+  const courseSource = stateCourseId(id, also);
+  const courseId = courseSource.slice(0, 8) + String(id)[8];
+  const digit = courseId[7];
+  const previousIds = [...new Set(previousDigits.map(String))].map((d) => `${courseId.slice(0, 7)}${d}0`);
+  const ev = evaluateDivisionEligibility({ profile: "state", currentId: courseId, previousIds });
+  const allowed = ev.allowedDivisions.map(stateIndividual).filter(Boolean)
+    .sort((a, b) => STATE_ORDER.indexOf(a.division) - STATE_ORDER.indexOf(b.division));
   const division = DIVISION_BY_DIGIT[digit] ?? null;
-  const topicsFor = (ind) => {
-    const e = ind ? evaluateDivisionEligibility({ profile: "state", currentId: idForTest(id, ind, "state"), previousIds }) : ev;
-    return Object.fromEntries(STATE_ROUNDS.map(({ group }) => [group,
-      STATE_TEST_CATALOG.filter((t) => t.group === group && t.active !== false && testAvailability(t, e).allowed).map((t) => t.id)]));
-  };
+  const own = stateIndividual(STATE_DIVISION_BY_DIGIT[digit]);
+  const individual = own && allowed.includes(own) ? own : defaultIndividualForEligibility(ev, STATE_TEST_CATALOG);
+  // Topic tests the course allows (move up, never down), in menu order.
+  const topicOptions = Object.fromEntries(STATE_ROUNDS.map(({ group }) => [group,
+    STATE_TEST_CATALOG.filter((t) => t.group === group && t.active !== false && testAvailability(t, ev).allowed)
+      .sort(topicSort).map((t) => t.id)]));
+  const ownTopic = STATE_DIVISION_BY_DIGIT[digit] === "statistics" ? "open" : STATE_DIVISION_BY_DIGIT[digit];
+  const topicDefaults = Object.fromEntries(STATE_ROUNDS.map(({ group }) => {
+    const opts = topicOptions[group].map((x) => STATE_TEST_BY_ID.get(x));
+    const first = opts.find((t) => t.division === ownTopic) ?? opts.find((t) => t.division !== "open") ?? opts[0];
+    return [group, first?.id ?? TOPIC_BLANK];
+  }));
   if (allowed.length === 0) {
     return { division, eligible: false, pile: null, choices: [], reason: ev.issues.map((i) => i.message).join(" ") || "No State Individual for this ID" };
   }
   return {
     division,
     eligible: true,
+    courseId,
     pile: individual?.name ?? null,
     choices: individual ? [] : allowed.map((t) => t.name),
     allowedPiles: allowed.map((t) => t.name),
-    topicsFor,
+    topicOptions,
+    topicDefaults,
+    topicsFor: () => topicOptions,
     reason: individual
-      ? `${division} takes ${individual.name}`
+      ? `${division}: ${individual.name}. Topic tests: ${ownTopic === "open" ? "any" : `${topicGroupLabel(ownTopic)} or harder, or Open`}`
       : `Choose the Individual: ${ev.issues.map((i) => i.message).join(" ")}`,
   };
 }
 
+/** The topic test chosen for one round of a State row (its own pick, else the default). */
+export function stateTopic(row, group) {
+  return row.topics?.[group] ?? row.topicDefaults?.[group] ?? TOPIC_BLANK;
+}
+
 /** Sheets for one State row: its Individual, then one sheet per topic round. */
-export function stateSheets(row, topicChoice = {}) {
+export function stateSheets(row) {
   const ind = STATE_TEST_CATALOG.find((t) => t.group === "individual" && t.name === row.pile);
   if (!ind) return [];
-  const sheets = [{ kind: 0, testName: ind.name, testCode: ind.code, id: idForTest(row.id, ind, "state") }];
-  const topics = row.topicsFor ? row.topicsFor(ind) : {};
+  const id = idForTest(row.courseId ?? row.id, ind, "state");
+  const sheets = [{ kind: 0, testName: ind.name, testCode: ind.code, id }];
   STATE_ROUNDS.forEach(({ group, label }, i) => {
-    const choice = topicChoice[group]?.[ind.division] ?? TOPIC_BLANK;
+    const choice = stateTopic(row, group);
     if (choice === TOPIC_NONE) return;
     const test = STATE_TEST_BY_ID.get(choice);
-    if (test && (topics[group] ?? []).includes(test.id)) {
-      sheets.push({ kind: i + 1, testName: test.name, testCode: test.code, id: row.id });
+    if (test && (row.topicOptions?.[group] ?? []).includes(test.id)) {
+      sheets.push({ kind: i + 1, testName: test.name, testCode: test.code, id });
     } else {
-      sheets.push({ kind: i + 1, testName: label, testCode: "", id: row.id, blank: true,
-        mismatch: Boolean(test) });
+      sheets.push({ kind: i + 1, testName: label, testCode: "", id, blank: true, mismatch: Boolean(test) });
     }
   });
   return sheets;
@@ -356,7 +396,8 @@ const DUP_NOTE = "Another student has the same name, so last year's roster was n
  * is matched by name only when the name is unique in both rosters.
  */
 export function assignRow(preset, s, lastYear = new Map(), nameCounts = new Map()) {
-  const keep = { srcKey: s.srcKey, typed: s.typed, off: s.off, sel: s.sel, also: [...(s.also ?? [])] };
+  const keep = { srcKey: s.srcKey, typed: s.typed, off: s.off, sel: s.sel, also: [...(s.also ?? [])],
+    topics: s.topics ? { ...s.topics } : undefined };
   const previousIds = [...(s.previousIds ?? [])];
   const plain = { ...keep, name: s.name ?? "", id: s.id ?? "", previousIds, prevDigits: [],
     choices: [], allowedPiles: [], topicsFor: undefined, check: false, dupName: false, manualPile: undefined };
@@ -366,7 +407,12 @@ export function assignRow(preset, s, lastYear = new Map(), nameCounts = new Map(
   const matches = (!explicit.length && k && lastYear.get(k)) || [];
   const dupName = matches.length > 1 || (matches.length === 1 && (nameCounts.get(k) ?? 1) > 1);
   const prevDigits = explicit.length ? explicit : matches.length === 1 && !dupName ? matches[0] : [];
-  const row = { ...plain, prevDigits, ...preset.assign(plain.id, prevDigits) };
+  const row = { ...plain, prevDigits, ...preset.assign(plain.id, prevDigits, plain.also) };
+  // Keep a topic pick only while it is still one of this student's options.
+  if (row.topics && row.topicOptions) {
+    row.topics = Object.fromEntries(Object.entries(row.topics)
+      .filter(([g, v]) => v === TOPIC_BLANK || v === TOPIC_NONE || (row.topicOptions[g] ?? []).includes(v)));
+  }
   row.allowedPiles ??= [];
   row.check = Boolean(row.check) || dupName;
   row.dupName = dupName;
@@ -407,7 +453,7 @@ export function mergeRoster(oldRows, students) {
     if (!o) return s;
     kept += 1;
     return { ...s, name: o.name, id: o.id, previousIds: o.previousIds ?? s.previousIds,
-      off: o.off, sel: o.sel, manualPile: o.manualPile };
+      off: o.off, sel: o.sel, manualPile: o.manualPile, topics: o.topics };
   });
   const typed = oldRows.filter((r) => !r.srcKey && r.typed);
   return { students: [...merged, ...typed], added: students.length - kept, kept };
