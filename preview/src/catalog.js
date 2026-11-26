@@ -2,16 +2,17 @@
  * FAMAT State Convention scorer catalog.
  *
  * Codes are strings on purpose: scanner codes are fixed-width identifiers and
- * must never lose a leading zero.  This catalog reflects the operational 2026
- * scorer mapping supplied for the 2027 convention workflow, not the older
- * table in the convention letter.
+ * must never lose a leading zero.  Codes follow the revised 2027 convention
+ * packet's "Topic-test and individual-test codes" table (Derek, Nov 26, 2026:
+ * "Use the updated information"): Individuals 111-555, Round 1 411-811,
+ * Round 2 421-821.  The packet notes Radleigh and Tucker confirm the mapping.
  */
 
 export const CATALOG_METADATA = Object.freeze({
   name: "FAMAT State Convention test-code catalog",
   conventionYear: 2027,
-  mappingBasis: "Operational 2026 scorer mapping adapted for 2027",
-  status: "Operational mapping",
+  mappingBasis: "Revised 2027 convention packet code table",
+  status: "2027 packet mapping",
   sourceDescription:
     "Reviewed State Convention packet and organizer scorer mapping, including Chi",
   pendingItems: Object.freeze([]),
@@ -22,7 +23,7 @@ export const STATE_CATALOG_METADATA = CATALOG_METADATA;
 const catalog = [
   {
     id: "theta-individual",
-    code: "231",
+    code: "111",
     name: "Theta Individual",
     group: "individual",
     division: "theta",
@@ -30,7 +31,7 @@ const catalog = [
   },
   {
     id: "alpha-individual",
-    code: "241",
+    code: "222",
     name: "Alpha Individual",
     group: "individual",
     division: "alpha",
@@ -38,7 +39,7 @@ const catalog = [
   },
   {
     id: "mu-individual",
-    code: "251",
+    code: "333",
     name: "Calculus Individual",
     group: "individual",
     division: "mu",
@@ -46,7 +47,7 @@ const catalog = [
   },
   {
     id: "statistics-individual",
-    code: "261",
+    code: "444",
     name: "Statistics Individual",
     group: "individual",
     division: "statistics",
@@ -54,7 +55,7 @@ const catalog = [
   },
   {
     id: "chi-individual",
-    code: "291",
+    code: "555",
     name: "Chi Individual",
     group: "individual",
     division: "chi",
@@ -63,7 +64,7 @@ const catalog = [
 
   {
     id: "round-1-statistics-unplugged",
-    code: "301",
+    code: "711",
     name: "Statistics Unplugged (Open)",
     group: "round_1",
     division: "open",
@@ -71,7 +72,7 @@ const catalog = [
   },
   {
     id: "round-1-gemini",
-    code: "302",
+    code: "811",
     name: "Gemini (Open)",
     group: "round_1",
     division: "open",
@@ -79,7 +80,7 @@ const catalog = [
   },
   {
     id: "round-1-theta-applications",
-    code: "331",
+    code: "411",
     name: "Theta Applications (Theta)",
     group: "round_1",
     division: "theta",
@@ -87,7 +88,7 @@ const catalog = [
   },
   {
     id: "round-1-theta-functions",
-    code: "332",
+    code: "412",
     name: "Functions (Theta)",
     group: "round_1",
     division: "theta",
@@ -95,7 +96,7 @@ const catalog = [
   },
   {
     id: "round-1-theta-cpav",
-    code: "333",
+    code: "413",
     name: "CPAV (Theta)",
     group: "round_1",
     division: "theta",
@@ -109,7 +110,7 @@ const catalog = [
   },
   {
     id: "round-1-alpha-equations-inequalities",
-    code: "341",
+    code: "511",
     name: "Equations & Inequalities (Alpha)",
     group: "round_1",
     division: "alpha",
@@ -122,7 +123,7 @@ const catalog = [
   },
   {
     id: "round-1-alpha-analytic-geometry",
-    code: "342",
+    code: "512",
     name: "Analytic Geometry (Alpha)",
     group: "round_1",
     division: "alpha",
@@ -130,7 +131,7 @@ const catalog = [
   },
   {
     id: "round-1-alpha-trigonometry",
-    code: "343",
+    code: "513",
     name: "Trigonometry (Alpha)",
     group: "round_1",
     division: "alpha",
@@ -138,7 +139,7 @@ const catalog = [
   },
   {
     id: "round-1-mu-calculus-applications",
-    code: "351",
+    code: "611",
     name: "Calculus Applications (Mu)",
     group: "round_1",
     division: "mu",
@@ -146,7 +147,7 @@ const catalog = [
   },
   {
     id: "round-1-mu-integration",
-    code: "352",
+    code: "612",
     name: "Integration (Mu)",
     group: "round_1",
     division: "mu",
@@ -154,7 +155,7 @@ const catalog = [
   },
   {
     id: "round-1-mu-sequences-series",
-    code: "353",
+    code: "613",
     name: "Sequences & Series (Mu)",
     group: "round_1",
     division: "mu",
@@ -163,7 +164,7 @@ const catalog = [
 
   {
     id: "round-2-probability",
-    code: "401",
+    code: "721",
     name: "Probability (Open)",
     group: "round_2",
     division: "open",
@@ -171,7 +172,7 @@ const catalog = [
   },
   {
     id: "round-2-history-trigonometry",
-    code: "402",
+    code: "821",
     name: "History of Math: Trigonometry (Open)",
     group: "round_2",
     division: "open",
@@ -187,7 +188,7 @@ const catalog = [
   },
   {
     id: "round-2-theta-equations-inequalities",
-    code: "431",
+    code: "421",
     name: "Equations and Inequalities (Theta)",
     group: "round_2",
     division: "theta",
@@ -200,7 +201,7 @@ const catalog = [
   },
   {
     id: "round-2-theta-logs-exponents",
-    code: "432",
+    code: "422",
     name: "Logs & Exponents (Theta)",
     group: "round_2",
     division: "theta",
@@ -208,7 +209,7 @@ const catalog = [
   },
   {
     id: "round-2-theta-geometry",
-    code: "433",
+    code: "423",
     name: "Geometry (Theta)",
     group: "round_2",
     division: "theta",
@@ -216,7 +217,7 @@ const catalog = [
   },
   {
     id: "round-2-alpha-applications",
-    code: "441",
+    code: "521",
     name: "Alpha Applications (Alpha)",
     group: "round_2",
     division: "alpha",
@@ -224,7 +225,7 @@ const catalog = [
   },
   {
     id: "round-2-alpha-complex-numbers",
-    code: "442",
+    code: "522",
     name: "Complex Numbers (Alpha)",
     group: "round_2",
     division: "alpha",
@@ -232,7 +233,7 @@ const catalog = [
   },
   {
     id: "round-2-alpha-matrices-vectors",
-    code: "443",
+    code: "523",
     name: "Matrices & Vectors (Alpha)",
     group: "round_2",
     division: "alpha",
@@ -240,7 +241,7 @@ const catalog = [
   },
   {
     id: "round-2-mu-area-volume",
-    code: "451",
+    code: "621",
     name: "Area & Volume (Mu)",
     group: "round_2",
     division: "mu",
@@ -248,7 +249,7 @@ const catalog = [
   },
   {
     id: "round-2-mu-limits-derivatives",
-    code: "452",
+    code: "622",
     name: "Limits & Derivatives (Mu)",
     group: "round_2",
     division: "mu",
@@ -256,7 +257,7 @@ const catalog = [
   },
   {
     id: "round-2-mu-bc-calculus",
-    code: "453",
+    code: "623",
     name: "BC Calculus (Mu)",
     group: "round_2",
     division: "mu",

@@ -97,15 +97,16 @@ function assignHndBase(id, previousDigits) {
  * State Convention. Everything comes from the student's famat.org IDs.
  * The course is the highest course among the IDs, leaving out Statistics
  * (Geometry/Algebra II = Theta, Precalculus = Alpha, Calculus = Mu, middle
- * school = Chi); a student listed only for Statistics is Statistics.
+ * school = Chi); a student listed only for Statistics starts in Calculus.
  * The Individual defaults to the course's Individual; the menu offers the
  * others the Sponsors' Guide chart allows (Statistics for anyone in Theta and up).
  * Topic tests: "restricted to the levels indicated on the test. A student may
  * move up, but not down" (2027 letter), judged from the course, not from the
  * Individual picked. Each student has a Round 1 and a Round 2 menu, easiest
  * division first, hardest last, then Open. Round 1 and 2 start on the first
- * test of the student's own division (Open statistics tests for a Statistics-
- * only student); the sponsor changes them in the menu.
+ * test of the student's own division; the sponsor changes them in the menu.
+ * A Statistics-only student is not held to a level and starts in Calculus
+ * (Individual and both rounds), per Derek, Nov 26, 2026.
  * ------------------------------------------------------------------------- */
 
 const STATE_ORDER = ["chi", "theta", "alpha", "mu", "statistics"];
@@ -146,13 +147,15 @@ export function assignState(id, previousDigits = [], also = []) {
   const allowed = ev.allowedDivisions.map(stateIndividual).filter(Boolean)
     .sort((a, b) => STATE_ORDER.indexOf(a.division) - STATE_ORDER.indexOf(b.division));
   const division = DIVISION_BY_DIGIT[digit] ?? null;
-  const own = stateIndividual(STATE_DIVISION_BY_DIGIT[digit]);
+  // A Statistics-only student starts in Calculus (Derek, Nov 26, 2026) and may pick any level.
+  const ownDivision = digit === "6" ? "mu" : STATE_DIVISION_BY_DIGIT[digit];
+  const own = stateIndividual(ownDivision);
   const individual = own && allowed.includes(own) ? own : defaultIndividualForEligibility(ev, STATE_TEST_CATALOG);
   // Topic tests the course allows (move up, never down), in menu order.
   const topicOptions = Object.fromEntries(STATE_ROUNDS.map(({ group }) => [group,
     STATE_TEST_CATALOG.filter((t) => t.group === group && t.active !== false && testAvailability(t, ev).allowed)
       .sort(topicSort).map((t) => t.id)]));
-  const ownTopic = STATE_DIVISION_BY_DIGIT[digit] === "statistics" ? "open" : STATE_DIVISION_BY_DIGIT[digit];
+  const ownTopic = ownDivision;
   const topicDefaults = Object.fromEntries(STATE_ROUNDS.map(({ group }) => {
     const opts = topicOptions[group].map((x) => STATE_TEST_BY_ID.get(x));
     const first = opts.find((t) => t.division === ownTopic) ?? opts.find((t) => t.division !== "open") ?? opts[0];
@@ -172,7 +175,7 @@ export function assignState(id, previousDigits = [], also = []) {
     topicDefaults,
     topicsFor: () => topicOptions,
     reason: individual
-      ? `${division}: ${individual.name}. Topic tests: ${ownTopic === "open" ? "any" : `${topicGroupLabel(ownTopic)} or harder, or Open`}`
+      ? `${division}: ${individual.name}. Topic tests: ${digit === "6" ? "any level" : `${topicGroupLabel(ownTopic)} or harder, or Open`}`
       : `Choose the Individual: ${ev.issues.map((i) => i.message).join(" ")}`,
   };
 }

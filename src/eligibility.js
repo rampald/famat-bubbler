@@ -111,7 +111,9 @@ export const STATE_ELIGIBILITY_CHART = Object.freeze({
   3: Object.freeze(["theta", "alpha", "mu", "statistics"]),
   4: Object.freeze(["alpha", "mu", "statistics"]),
   5: Object.freeze(["mu", "statistics"]),
-  6: Object.freeze(["statistics"]),
+  // Derek, Nov 26, 2026: a Statistics-only student is not held to a level and
+  // starts in Calculus.
+  6: Object.freeze(["theta", "alpha", "mu", "statistics"]),
   9: Object.freeze(["chi", "statistics"]),
 });
 
@@ -313,7 +315,7 @@ export function evaluateDivisionEligibility({
       registeredDivision = chartRow?.length === 1 ? chartRow[0] : null;
     }
   } else if (scheme === "state") {
-    registeredDivision = idDigit ? STATE_DIVISION_BY_ID_DIGIT[idDigit] ?? null : null;
+    registeredDivision = idDigit === "6" ? "mu" : idDigit ? STATE_DIVISION_BY_ID_DIGIT[idDigit] ?? null : null;
     chartRow = idDigit ? STATE_ELIGIBILITY_CHART[idDigit] ?? null : null;
     const ranks = [];
     if (idDigit && LADDER_RANK_BY_ID_DIGIT[idDigit] !== undefined) ranks.push(LADDER_RANK_BY_ID_DIGIT[idDigit]);

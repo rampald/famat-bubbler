@@ -24,33 +24,33 @@ import {
 } from "../src/model.js";
 
 const EXPECTED_CODES = Object.freeze({
-  "theta-individual": "231",
-  "alpha-individual": "241",
-  "mu-individual": "251",
-  "statistics-individual": "261",
-  "chi-individual": "291",
-  "round-1-statistics-unplugged": "301",
-  "round-1-gemini": "302",
-  "round-1-theta-applications": "331",
-  "round-1-theta-functions": "332",
-  "round-1-theta-cpav": "333",
-  "round-1-alpha-equations-inequalities": "341",
-  "round-1-alpha-analytic-geometry": "342",
-  "round-1-alpha-trigonometry": "343",
-  "round-1-mu-calculus-applications": "351",
-  "round-1-mu-integration": "352",
-  "round-1-mu-sequences-series": "353",
-  "round-2-probability": "401",
-  "round-2-history-trigonometry": "402",
-  "round-2-theta-equations-inequalities": "431",
-  "round-2-theta-logs-exponents": "432",
-  "round-2-theta-geometry": "433",
-  "round-2-alpha-applications": "441",
-  "round-2-alpha-complex-numbers": "442",
-  "round-2-alpha-matrices-vectors": "443",
-  "round-2-mu-area-volume": "451",
-  "round-2-mu-limits-derivatives": "452",
-  "round-2-mu-bc-calculus": "453",
+  "theta-individual": "111",
+  "alpha-individual": "222",
+  "mu-individual": "333",
+  "statistics-individual": "444",
+  "chi-individual": "555",
+  "round-1-statistics-unplugged": "711",
+  "round-1-gemini": "811",
+  "round-1-theta-applications": "411",
+  "round-1-theta-functions": "412",
+  "round-1-theta-cpav": "413",
+  "round-1-alpha-equations-inequalities": "511",
+  "round-1-alpha-analytic-geometry": "512",
+  "round-1-alpha-trigonometry": "513",
+  "round-1-mu-calculus-applications": "611",
+  "round-1-mu-integration": "612",
+  "round-1-mu-sequences-series": "613",
+  "round-2-probability": "721",
+  "round-2-history-trigonometry": "821",
+  "round-2-theta-equations-inequalities": "421",
+  "round-2-theta-logs-exponents": "422",
+  "round-2-theta-geometry": "423",
+  "round-2-alpha-applications": "521",
+  "round-2-alpha-complex-numbers": "522",
+  "round-2-alpha-matrices-vectors": "523",
+  "round-2-mu-area-volume": "621",
+  "round-2-mu-limits-derivatives": "622",
+  "round-2-mu-bc-calculus": "623",
 });
 const EXPECTED_NAMES = Object.freeze({
   "theta-individual": "Theta Individual",
@@ -86,9 +86,9 @@ function registration(overrides = {}) {
   return {
     studentName: "Rivera, Ana M.",
     stateId: "537702740",
-    individualTest: "241",
-    round1Test: "342",
-    round2Test: "442",
+    individualTest: "222",
+    round1Test: "512",
+    round2Test: "522",
     division: "Alpha",
     source: { format: "test", line: 1 },
     ...overrides,
@@ -97,8 +97,8 @@ function registration(overrides = {}) {
 
 test("catalog contains the confirmed operational mapping including Chi", () => {
   assert.equal(CATALOG_METADATA.conventionYear, 2027);
-  assert.match(CATALOG_METADATA.mappingBasis, /operational 2026 scorer mapping/i);
-  assert.match(CATALOG_METADATA.status, /operational mapping/i);
+  assert.match(CATALOG_METADATA.mappingBasis, /Revised 2027 convention packet code table/i);
+  assert.match(CATALOG_METADATA.status, /2027 packet mapping/i);
   assert.deepEqual(CATALOG_METADATA.pendingItems, []);
 
   for (const [id, code] of Object.entries(EXPECTED_CODES)) {
@@ -110,7 +110,7 @@ test("catalog contains the confirmed operational mapping including Chi", () => {
   }
 
   const chi = TEST_CATALOG.find((entry) => entry.id === "chi-individual");
-  assert.equal(chi.code, "291");
+  assert.equal(chi.code, "555");
   assert.equal(chi.name, EXPECTED_NAMES["chi-individual"]);
   assert.equal(chi.status, "operational");
   assert.equal(chi.blocking, false);
@@ -120,23 +120,23 @@ test("catalog contains the confirmed operational mapping including Chi", () => {
 });
 
 test("catalog resolution respects round groups and refuses ambiguity", () => {
-  assert.equal(resolveTestReference("342", TEST_GROUPS.ROUND_1).test.name, "Analytic Geometry (Alpha)");
-  assert.equal(resolveTestReference("Probability", TEST_GROUPS.ROUND_2).test.code, "401");
-  assert.equal(resolveTestReference("Trigonometry", TEST_GROUPS.ROUND_1).test.code, "343");
-  assert.equal(resolveTestReference("Trigonometry", TEST_GROUPS.ROUND_2).test.code, "402");
+  assert.equal(resolveTestReference("512", TEST_GROUPS.ROUND_1).test.name, "Analytic Geometry (Alpha)");
+  assert.equal(resolveTestReference("Probability", TEST_GROUPS.ROUND_2).test.code, "721");
+  assert.equal(resolveTestReference("Trigonometry", TEST_GROUPS.ROUND_1).test.code, "513");
+  assert.equal(resolveTestReference("Trigonometry", TEST_GROUPS.ROUND_2).test.code, "821");
   assert.equal(resolveTestReference("applications", TEST_GROUPS.ROUND_1).status, "ambiguous");
-  assert.equal(resolveTestReference("401", TEST_GROUPS.ROUND_1).status, "wrong_group");
+  assert.equal(resolveTestReference("721", TEST_GROUPS.ROUND_1).status, "wrong_group");
   assert.equal(resolveTestReference("Chi Individual", TEST_GROUPS.INDIVIDUAL).status, "resolved");
-  assert.equal(resolveTestReference("Chi Individual", TEST_GROUPS.INDIVIDUAL).test.code, "291");
+  assert.equal(resolveTestReference("Chi Individual", TEST_GROUPS.INDIVIDUAL).test.code, "555");
 });
 
 test("division aliases infer every current individual test including confirmed Chi", () => {
-  assert.equal(inferIndividualTestFromDivision("Algebra II").code, "231");
-  assert.equal(inferIndividualTestFromDivision("Pre-Calculus").code, "241");
-  assert.equal(inferIndividualTestFromDivision("Calculus").code, "251");
-  assert.equal(inferIndividualTestFromDivision("Stats").code, "261");
+  assert.equal(inferIndividualTestFromDivision("Algebra II").code, "111");
+  assert.equal(inferIndividualTestFromDivision("Pre-Calculus").code, "222");
+  assert.equal(inferIndividualTestFromDivision("Calculus").code, "333");
+  assert.equal(inferIndividualTestFromDivision("Stats").code, "444");
   assert.equal(inferIndividualTestFromDivision("Chi").id, "chi-individual");
-  assert.equal(inferIndividualTestFromDivision("Chi").code, "291");
+  assert.equal(inferIndividualTestFromDivision("Chi").code, "555");
 });
 
 test("reviewed code overrides can replace a confirmed code without mutating the base catalog", () => {
@@ -145,7 +145,7 @@ test("reviewed code overrides can replace a confirmed code without mutating the 
   const reviewedChi = reviewedCatalog.find((entry) => entry.id === "chi-individual");
 
   assert.notEqual(reviewedCatalog, TEST_CATALOG);
-  assert.equal(baseChi.code, "291");
+  assert.equal(baseChi.code, "555");
   assert.equal(baseChi.status, "operational");
   assert.equal(baseChi.blocking, false);
   assert.equal(reviewedChi.code, "271");
@@ -164,7 +164,7 @@ test("catalog overrides reject invalid, duplicate, and unknown codes", () => {
     /exactly three digits/i,
   );
   assert.throws(
-    () => catalogWithCodeOverrides({ "chi-individual": "231" }),
+    () => catalogWithCodeOverrides({ "chi-individual": "111" }),
     /assigned to both/i,
   );
   assert.throws(
@@ -176,8 +176,8 @@ test("catalog overrides reject invalid, duplicate, and unknown codes", () => {
 test("CSV parser preserves comma-containing names, spaced IDs, and CRLF input", () => {
   const input = [
     "student_name,state_id,individual_test,round_1_test,round_2_test",
-    '"Rivera, Ana M.",5 3 7 7 0 2 7 4 0,Alpha Individual,342,442',
-    '"de la Cruz, Mateo J., Jr.",537700150,231,331,433',
+    '"Rivera, Ana M.",5 3 7 7 0 2 7 4 0,Alpha Individual,512,522',
+    '"de la Cruz, Mateo J., Jr.",537700150,111,411,423',
   ].join("\r\n");
 
   const result = parseDelimitedRegistration(input);
@@ -220,7 +220,7 @@ test("CSV parser accepts the documented friendly column headings", () => {
 test("CSV parser accepts the participant packet's exact No Team STATE ID heading", () => {
   const input = [
     "Student Name,No Team STATE ID,Individual,Round 1,Round 2",
-    '"Sample, Student",123400190,Chi Individual,331,433',
+    '"Sample, Student",123400190,Chi Individual,411,423',
   ].join("\n");
 
   const result = parseRegistrationInput(input);
@@ -235,7 +235,7 @@ test("CSV parser accepts the participant packet's exact No Team STATE ID heading
 test("pasted unquoted CSV name commas are recovered and reported", () => {
   const input = [
     "student_name,state_id,individual_test,round_1_test,round_2_test",
-    "Rivera, Ana M.,537702740,241,342,442",
+    "Rivera, Ana M.,537702740,222,512,522",
   ].join("\n");
   const result = parseRegistrationInput(input);
   assert.equal(result.records[0].studentName, "Rivera, Ana M.");
@@ -259,7 +259,7 @@ test("delimited parser reports missing headers and row field mismatches", () => 
   assert.ok(missing.errors.filter((issue) => issue.code === "MISSING_HEADER").length >= 3);
 
   const shortRow = parseDelimitedRegistration(
-    "student_name,state_id,individual_test,round_1_test,round_2_test\nAna,537702740,241,342",
+    "student_name,state_id,individual_test,round_1_test,round_2_test\nAna,537702740,222,512",
   );
   assert.ok(shortRow.errors.some((issue) => issue.code === "FIELD_COUNT_MISMATCH"));
   assert.equal(shortRow.records.length, 1);
@@ -286,7 +286,7 @@ test("roster parser handles spaced digits, full names, variants, and pseudo rows
   assert.equal(result.records[1].studentName, "de la Cruz, Mateo J., Jr. (MJ)");
   assert.equal(result.records[1].individualTest, "mu-individual");
   assert.equal(result.records[2].studentName, "Nguyen, Linh");
-  assert.equal(result.records[2].individualTest, "statistics-individual");
+  assert.equal(result.records[2].individualTest, "mu-individual", "a Statistics-only student starts in Calculus");
   assert.ok(result.warnings.some((issue) => issue.code === "PSEUDO_ROW_SKIPPED"));
   assert.deepEqual(result.errors, []);
 });
@@ -324,8 +324,8 @@ test("model creates exactly three deterministic jobs per valid student", () => {
     schoolName: "Doral Academy Preparatory School",
     schoolCode: "5377",
     records: [
-      registration({ studentName: "Zulu, Zoe", stateId: "537700140", round1Test: "343" }),
-      registration({ studentName: "Adams, Ava", stateId: "537700240", round1Test: "341" }),
+      registration({ studentName: "Zulu, Zoe", stateId: "537700140", round1Test: "513" }),
+      registration({ studentName: "Adams, Ava", stateId: "537700240", round1Test: "511" }),
     ],
     sortBy: "student",
   });
@@ -350,13 +350,13 @@ test("model can sort packets by test code and then student", () => {
   const base = buildPacket({
     schoolName: "Doral Academy Preparatory School",
     records: [
-      registration({ studentName: "Zulu, Zoe", stateId: "537700140", round1Test: "343" }),
-      registration({ studentName: "Adams, Ava", stateId: "537700240", round1Test: "341" }),
+      registration({ studentName: "Zulu, Zoe", stateId: "537700140", round1Test: "513" }),
+      registration({ studentName: "Adams, Ava", stateId: "537700240", round1Test: "511" }),
     ],
     sortBy: "test",
   });
   assert.equal(base.ok, true);
-  assert.deepEqual(base.jobs.map((job) => job.testCode), ["241", "241", "341", "343", "442", "442"]);
+  assert.deepEqual(base.jobs.map((job) => job.testCode), ["222", "222", "511", "513", "522", "522"]);
   assert.equal(base.jobs[0].studentName, "Adams, Ava");
 
   const reversed = sortJobs([...base.jobs].reverse(), "test");
@@ -374,13 +374,13 @@ test("model infers an individual test from roster division", () => {
         stateId: "537700130",
         division: "Algebra II",
         individualTest: "",
-        round1Test: "331",
-        round2Test: "433",
+        round1Test: "411",
+        round2Test: "423",
       }),
     ],
   });
   assert.equal(result.ok, true);
-  assert.equal(result.jobs[0].testCode, "231");
+  assert.equal(result.jobs[0].testCode, "111");
 });
 
 test("State IDs set the division; chart-allowed higher divisions print with their own 8th digit", () => {
@@ -391,7 +391,7 @@ test("State IDs set the division; chart-allowed higher divisions print with thei
       registration({
         stateId: "537700130",
         division: "Alpha",
-        individualTest: "241",
+        individualTest: "222",
       }),
     ],
   });
@@ -413,7 +413,7 @@ test("State IDs set the division; chart-allowed higher divisions print with thei
       registration({
         stateId: "537700170",
         division: "",
-        individualTest: "241",
+        individualTest: "222",
       }),
     ],
   });
@@ -428,7 +428,7 @@ test("State IDs set the division; chart-allowed higher divisions print with thei
       registration({
         stateId: "537700140",
         division: "Alpha",
-        individualTest: "231",
+        individualTest: "111",
       }),
     ],
   });
@@ -440,7 +440,7 @@ test("State IDs set the division; chart-allowed higher divisions print with thei
   );
 });
 
-test("confirmed Chi derives from State ID digit 9 and produces code 291", () => {
+test("confirmed Chi derives from State ID digit 9 and produces code 555", () => {
   const result = buildPacket({
     schoolName: "Example High School",
     records: [
@@ -448,15 +448,15 @@ test("confirmed Chi derives from State ID digit 9 and produces code 291", () => 
         stateId: "537700190",
         division: "Chi",
         individualTest: "",
-        round1Test: "331",
-        round2Test: "433",
+        round1Test: "411",
+        round2Test: "423",
       }),
     ],
   });
   assert.equal(result.ok, true);
   assert.equal(result.jobs.length, 3);
   assert.equal(result.jobs[0].testId, "chi-individual");
-  assert.equal(result.jobs[0].testCode, "291");
+  assert.equal(result.jobs[0].testCode, "555");
 });
 
 test("a reviewed Chi override drives packet validation and generated jobs", () => {
@@ -469,8 +469,8 @@ test("a reviewed Chi override drives packet validation and generated jobs", () =
         stateId: "537700190",
         division: "Chi",
         individualTest: "",
-        round1Test: "331",
-        round2Test: "433",
+        round1Test: "411",
+        round2Test: "423",
       }),
     ],
   });
@@ -491,32 +491,32 @@ test("topic eligibility allows Open, same-division, and upward ladder assignment
         stateId: "537700190",
         division: "Chi",
         individualTest: "271",
-        round1Test: "331",
-        round2Test: "453",
+        round1Test: "411",
+        round2Test: "623",
       }),
       registration({
         studentName: "Theta, Taylor",
         stateId: "537700120",
         division: "Theta",
-        individualTest: "231",
-        round1Test: "331",
-        round2Test: "442",
+        individualTest: "111",
+        round1Test: "411",
+        round2Test: "522",
       }),
       registration({
         studentName: "Alpha, Avery",
         stateId: "537700140",
         division: "Alpha",
-        individualTest: "241",
-        round1Test: "341",
-        round2Test: "451",
+        individualTest: "222",
+        round1Test: "511",
+        round2Test: "621",
       }),
       registration({
         studentName: "Mu, Morgan",
         stateId: "537700150",
         division: "Mu",
-        individualTest: "251",
-        round1Test: "301",
-        round2Test: "401",
+        individualTest: "333",
+        round1Test: "711",
+        round2Test: "721",
       }),
     ],
   });
@@ -534,17 +534,17 @@ test("topic eligibility rejects downward ladder assignments, including without a
         studentName: "Mu, Morgan",
         stateId: "537700150",
         division: "Mu",
-        individualTest: "251",
-        round1Test: "331",
-        round2Test: "442",
+        individualTest: "333",
+        round1Test: "411",
+        round2Test: "522",
       }),
       registration({
         studentName: "Inferred, Indy",
         stateId: "537700250",
         division: null,
-        individualTest: "251",
-        round1Test: "341",
-        round2Test: "433",
+        individualTest: "333",
+        round1Test: "511",
+        round2Test: "423",
       }),
     ],
   });
@@ -574,9 +574,9 @@ test("Statistics State IDs take any topic unless a previous-year ID sets a level
       registration({
         stateId: "537702760",
         division: "Statistics",
-        individualTest: "261",
-        round1Test: "331",
-        round2Test: "442",
+        individualTest: "444",
+        round1Test: "411",
+        round2Test: "522",
       }),
     ],
   });
@@ -590,9 +590,9 @@ test("Statistics State IDs take any topic unless a previous-year ID sets a level
         stateId: "537702760",
         previousIds: "537702740",
         division: "Statistics",
-        individualTest: "261",
-        round1Test: "331",
-        round2Test: "442",
+        individualTest: "444",
+        round1Test: "411",
+        round2Test: "522",
       }),
     ],
   });
@@ -606,7 +606,7 @@ test("Statistics State IDs take any topic unless a previous-year ID sets a level
 
   const previousStatistics = buildPacket({
     schoolName: "Example High School",
-    records: [registration({ previousIds: "537702760", individualTest: "261" })],
+    records: [registration({ previousIds: "537702760", individualTest: "444" })],
   });
   assert.ok(
     previousStatistics.errors.some(
@@ -624,9 +624,9 @@ test("Statistics State IDs take any topic unless a previous-year ID sets a level
         stateId: "537702760",
         division: "Statistics",
         eligibilityBasis: "Alpha",
-        individualTest: "261",
-        round1Test: "331",
-        round2Test: "442",
+        individualTest: "444",
+        round1Test: "411",
+        round2Test: "522",
       }),
     ],
   });
@@ -652,9 +652,9 @@ test("catalog eligible-divisions restrictions apply to State Open events", () =>
         stateId: "537702730",
         division: "Theta",
         eligibilityBasis: "Theta",
-        individualTest: "231",
-        round1Test: "301",
-        round2Test: "433",
+        individualTest: "111",
+        round1Test: "711",
+        round2Test: "423",
       }),
     ],
   });
@@ -668,7 +668,7 @@ test("catalog eligible-divisions restrictions apply to State Open events", () =>
   const allowed = buildPacket({
     schoolName: "Example High School",
     catalog: restrictedCatalog,
-    records: [registration({ round1Test: "301" })],
+    records: [registration({ round1Test: "711" })],
   });
   assert.equal(allowed.ok, true);
   assert.equal(allowed.jobs.length, 3);
@@ -679,7 +679,7 @@ test("unknown and ambiguous tests block the packet; misplaced and repeated colum
     schoolName: "Example High School",
     records: [
       registration({
-        individualTest: "301",
+        individualTest: "711",
         round1Test: "applications",
         round2Test: "",
       }),
@@ -751,7 +751,7 @@ test("duplicates and inconsistent school prefixes block the complete packet", ()
 
 test("parser errors are carried into the model and no output is silently partial", () => {
   const parsed = parseDelimitedRegistration(
-    "student_name,state_id,individual_test,round_1_test,round_2_test\nAna,537702740,241,342",
+    "student_name,state_id,individual_test,round_1_test,round_2_test\nAna,537702740,222,512",
   );
   const result = buildPacket({
     ...parsed,

@@ -28,7 +28,7 @@ test("full builder prints each famat.org student once, with State rounds from th
   const dee = p.jobs.filter((j) => j.studentName === "Dunn, Dee").map((j) => j.testName);
   assert.deepEqual(dee.sort(), ["Area & Volume (Mu)", "Calculus Applications (Mu)", "Calculus Individual"].sort());
   const eve = p.jobs.filter((j) => j.studentName === "Ezra, Eve").map((j) => j.testName);
-  assert.ok(eve.includes("Statistics Individual"));
+  assert.ok(eve.includes("Calculus Individual"), "Statistics-only starts in Calculus");
 });
 
 test("full builder Hiller / Nunn / Dostal: one sheet per student, Statistics defaults to Dostal - Calculus", () => {

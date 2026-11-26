@@ -326,7 +326,7 @@ function renderProfileChrome() {
           ? "Each student needs at least one checked event."
         : isNational
           ? "Rename, move, deactivate, or add events as needed; generation stays blocked while a checked event lacks a reviewed code."
-          : "Chi uses State-ID digit 9 and Individual code 291. State prepared-sheet IDs end in 0; Speed and Mental receive no prepared scantron.",
+          : "Chi uses State-ID digit 9 and Individual code 555. State prepared-sheet IDs end in 0; Speed and Mental receive no prepared scantron.",
     }),
   );
 
@@ -396,7 +396,7 @@ function renderProfileChrome() {
     ? "<strong>School, School Code, and Previous Year IDs are optional.</strong> Use <strong>School</strong> when one file contains more than one school; otherwise the default school name above is used. A supplied four-digit School Code must match the first four Student ID digits. Separate several previous-year IDs with semicolons."
     : "<strong>School and School Code are optional.</strong> Use <strong>School</strong> when one file contains more than one school; otherwise the default school name above is used. A supplied four-digit School Code must match the first four Student ID digits.";
   dom.assignmentFormatRule.innerHTML =
-    '<strong>Separate the tests in the Events column with semicolons</strong>, for example <code>"Precalculus Individual; 441"</code>. Use each test\'s full name or three-digit code. Put quotation marks around a name containing a comma, for example <code>"Rivera, Ana"</code>.';
+    '<strong>Separate the tests in the Events column with semicolons</strong>, for example <code>"Precalculus Individual; 521"</code>. Use each test\'s full name or three-digit code. Put quotation marks around a name containing a comma, for example <code>"Rivera, Ana"</code>.';
   dom.footerReviewCopy.textContent =
     `Review the ${profile.shortLabel} event catalog and answer-sheet procedure against the organizer's final instructions before production printing.`;
   dom.catalogDialogTitle.textContent = isRegional
@@ -410,7 +410,7 @@ function renderProfileChrome() {
       ? "This mode has no preset events. Add only events that use this answer sheet and enter codes supplied by the competition's scorer."
     : isNational
       ? "No authoritative National answer-sheet packet or current scorer-code table was found. Treat this list as a starting template, revise it for the actual convention, and do not copy historical codes."
-      : "The current State packet uses Chi digit 9 and code 291, all four State topic levels, Statistics Individual, and the two topic rounds. Recheck if the packet changes.";
+      : "The current State packet uses Chi digit 9 and code 555, all four State topic levels, Statistics Individual, and the two topic rounds. Recheck if the packet changes.";
   dom.catalogEditorHelp.textContent =
     "Rename events, change their session or division, restrict eligible divisions, mark whether they use this scantron, deactivate outdated rows, or add events. Codes print on generated sheets: enter exactly three unique digits only after review. Pending checked codes block generation.";
   if (isHnd) {
