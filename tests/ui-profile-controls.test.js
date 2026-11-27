@@ -86,6 +86,19 @@ test("profile selector offers the five explicit workflows in the intended order"
   );
 });
 
+test("National and Custom stay separate from the FAMAT competitions", () => {
+  const profileSelect = elementSourceById(indexHtml, "select", "convention-profile");
+  const famat = profileSelect.match(/<optgroup label="FAMAT">([\s\S]*?)<\/optgroup>/i)?.[1] ?? "";
+  const other = profileSelect.match(/<optgroup label="Other competitions">([\s\S]*?)<\/optgroup>/i)?.[1] ?? "";
+  const values = (html) => [...html.matchAll(/value=["']([^"']+)["']/gi)].map((m) => m[1]);
+  assert.deepEqual(values(famat), ["hnd", "regional", "state"]);
+  assert.deepEqual(values(other), ["national", "custom"]);
+  for (const id of ["regional", "state", "national", "custom"]) {
+    assert.match(indexHtml, new RegExp(`class="template-link" data-profile="${id}"`));
+  }
+  assert.match(appSource, /link\.hidden = link\.dataset\.profile !== profile\.id/);
+});
+
 test("each student row has one test checklist and a previous-year ID column; course questions stay off", () => {
   assert.ok(openingTagById(indexHtml, "th", "previous-ids-heading"));
   assert.ok(openingTagById(indexHtml, "th", "tests-heading"));

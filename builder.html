@@ -112,14 +112,18 @@
         <div class="field-group field-group-narrow">
           <label for="convention-profile">Convention <span aria-hidden="true">*</span></label>
           <select id="convention-profile" name="convention-profile" required>
-            <option value="hnd">Hiller / Nunn / Dostal</option>
-            <option value="regional">FAMAT Regional / Invitational</option>
-            <option value="state" selected>FAMAT State Convention 2027</option>
-            <option value="national">Mu Alpha Theta National Convention 2027</option>
-            <option value="custom">Custom competition</option>
+            <optgroup label="FAMAT">
+              <option value="hnd">Hiller / Nunn / Dostal</option>
+              <option value="regional">FAMAT Regional / Invitational</option>
+              <option value="state" selected>FAMAT State Convention 2027</option>
+            </optgroup>
+            <optgroup label="Other competitions">
+              <option value="national">Mu Alpha Theta National Convention 2027</option>
+              <option value="custom">Custom competition</option>
+            </optgroup>
           </select>
           <p class="field-help" id="convention-profile-help">
-            Choose Regional / Invitational, State Convention, National Convention, or Custom.
+            Choose Hiller / Nunn / Dostal, Regional / Invitational, or State. National and Custom are separate options for other competitions.
           </p>
         </div>
 
@@ -248,12 +252,12 @@
               accepted. Extra columns are reported, and any column or event name
               the program cannot recognize is flagged for review.
             </p>
-            <div class="template-downloads" aria-label="Sample registration templates">
+            <div class="template-downloads" id="template-downloads" aria-label="Sample registration templates">
               <span class="template-downloads-label">Download a sample template:</span>
-              <a class="template-link" href="samples/regional-invitational-template.csv" download>Regional / Invitational CSV</a>
-              <a class="template-link" href="samples/state-registration-template.csv" download>State CSV</a>
-              <a class="template-link" href="samples/national-registration-template.csv" download>National CSV</a>
-              <a class="template-link" href="samples/custom-famat-event-template.csv" download>Custom event CSV</a>
+              <a class="template-link" data-profile="regional" href="samples/regional-invitational-template.csv" download>Regional / Invitational CSV</a>
+              <a class="template-link" data-profile="state" href="samples/state-registration-template.csv" download>State CSV</a>
+              <a class="template-link" data-profile="national" href="samples/national-registration-template.csv" download>National CSV</a>
+              <a class="template-link" data-profile="custom" href="samples/custom-famat-event-template.csv" download>Custom event CSV</a>
               <span class="template-note">Contains fictional students; replace every sample row before printing.</span>
             </div>
           </div>

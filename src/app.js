@@ -331,6 +331,11 @@ function renderProfileChrome() {
   );
 
   dom.formatProfileTitle.textContent = `${profile.shortLabel} file format`;
+  // Each competition shows only its own sample template; National and Custom stay out of the FAMAT flows.
+  const templateLinks = [...document.querySelectorAll("#template-downloads .template-link")];
+  for (const link of templateLinks) link.hidden = link.dataset.profile !== profile.id;
+  const templateBox = document.querySelector("#template-downloads");
+  if (templateBox) templateBox.hidden = !templateLinks.some((link) => !link.hidden);
   let sampleHeader;
   let sampleRow;
   if (isHnd) {
