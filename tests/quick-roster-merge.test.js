@@ -49,6 +49,7 @@ test("Hiller / Nunn / Dostal prints one sheet per student", () => {
   assert.match(eve.pile, /Dostal\W+Calculus/);
   assert.equal(eve.check, false);
   assert.ok(eve.choices.length > 1);
+  assert.ok(eve.choices.includes("Nunn"), "a Statistics student can switch to Nunn");
 });
 
 test("Regional prints one sheet per student, Statistics or higher division first, switchable", () => {

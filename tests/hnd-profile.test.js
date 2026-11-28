@@ -57,7 +57,7 @@ test("Statistics students default to Dostal - Calculus (Derek, Nov 26, 2026)", (
     assert.deepEqual(e.issues, []);
   }
   const unknown = evaluateDivisionEligibility({ profile: "hnd", currentId: "123400660" });
-  assert.deepEqual(unknown.allowedDivisions, ["dostal_precalculus", "dostal_calculus"]);
+  assert.deepEqual(unknown.allowedDivisions, ["nunn", "dostal_precalculus", "dostal_calculus"]);
 });
 
 test("a Statistics student may be switched to the other Dostal test, but not to Hiller", () => {

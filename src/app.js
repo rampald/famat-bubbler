@@ -420,7 +420,7 @@ function renderProfileChrome() {
     "Rename events, change their session or division, restrict eligible divisions, mark whether they use this scantron, deactivate outdated rows, or add events. Codes print on generated sheets: enter exactly three unique digits only after review. Pending checked codes block generation.";
   if (isHnd) {
     dom.conventionProfileHelp.textContent =
-      "Hiller / Nunn / Dostal picks each student's test from the FAMAT ID's 8th digit: 1 Hiller, 2 or 3 Nunn, 4 Dostal - Precalculus, 5 Dostal - Calculus. A Statistics student (6) gets Dostal - Calculus if a previous-year ID shows Precalculus or Calculus, otherwise Dostal - Precalculus. Test codes print blank.";
+      "Hiller / Nunn / Dostal picks each student's test from the FAMAT ID's 8th digit: 1 Hiller, 2 or 3 Nunn, 4 Dostal - Precalculus, 5 Dostal - Calculus. A Statistics student (6) starts on Dostal - Calculus; switch them to Dostal - Precalculus or Nunn if needed. Test codes print blank.";
     dom.catalogStatusTitle.textContent = "Hiller, Nunn, and Dostal tests loaded";
     dom.catalogStatusCopy.replaceChildren(
       document.createTextNode("The four tests are Hiller, Nunn, Dostal - Precalculus, and Dostal - Calculus. "),

@@ -72,7 +72,8 @@ function assignHndBase(id, previousDigits) {
     case "5":
       return { ...base, pile: NDH_PILES.DOSTAL_CALC, reason: "Calculus takes Dostal" };
     case "6": {
-      const choices = [NDH_PILES.DOSTAL_PRECALC, NDH_PILES.DOSTAL_CALC];
+      // Statistics may also take Nunn (Derek, Nov 28, 2026); Dostal - Calculus stays the default.
+      const choices = [NDH_PILES.NUNN, NDH_PILES.DOSTAL_PRECALC, NDH_PILES.DOSTAL_CALC];
       const prev = previousDigits.map(String);
       if (prev.some((d) => d === "4" || d === "5")) {
         return { ...base, choices, pile: NDH_PILES.DOSTAL_CALC,

@@ -38,6 +38,11 @@ test("full builder Hiller / Nunn / Dostal: one sheet per student, Statistics def
   assert.equal(p.jobs.find((j) => j.studentName === "Ezra, Eve").testName, "Dostal - Calculus");
 });
 
+test("full builder Hiller / Nunn / Dostal: a Statistics student may switch to Nunn", async () => {
+  const { HND_CHART } = await import("../src/eligibility.js");
+  assert.deepEqual([...HND_CHART[6]], ["nunn", "dostal_precalculus", "dostal_calculus"]);
+});
+
 test("full builder Regional: a student registered in Statistics keeps the Statistics line", () => {
   const prof = CONVENTION_PROFILES.regional;
   const parsed = parseRegistrationInput(ROSTER, { format: "roster", catalog: prof.catalog, divisionScheme: prof.divisionScheme });

@@ -74,7 +74,7 @@ const HND_DIVISIONS = Object.freeze(["hiller", "nunn", "dostal_precalculus", "do
 
 /**
  * Hiller / Nunn / Dostal: the ID's 8th digit picks the test. A Statistics
- * student (6) may take either Dostal test.
+ * student (6) may take Nunn or either Dostal test; Dostal - Calculus is the default.
  */
 export const HND_CHART = Object.freeze({
   1: Object.freeze(["hiller"]),
@@ -82,7 +82,7 @@ export const HND_CHART = Object.freeze({
   3: Object.freeze(["nunn"]),
   4: Object.freeze(["dostal_precalculus"]),
   5: Object.freeze(["dostal_calculus"]),
-  6: Object.freeze(["dostal_precalculus", "dostal_calculus"]),
+  6: Object.freeze(["nunn", "dostal_precalculus", "dostal_calculus"]),
 });
 
 /** Regional and Statewide columns of the chart, by the row the ID digit selects. */
