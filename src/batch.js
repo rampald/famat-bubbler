@@ -5,6 +5,7 @@ import {
   normalizeDivisionForProfile,
   resolveTestReference,
 } from "./catalog.js";
+import { mergeSameStudentLines } from "./parser.js";
 
 const ASSIGNMENT_GROUPS = Object.freeze({
   individualTest: TEST_GROUPS.INDIVIDUAL,
@@ -365,4 +366,25 @@ export function mergeParsedSources(
     duplicates,
     sources: sourceSummaries,
   };
+}
+
+/**
+ * The full builder's import: merge every file and the pasted rows, then treat
+ * famat.org roster lines for the same student (same name, same school and
+ * student number) as one student even when they came from different files.
+ * Each source must have been parsed with `mergeStudents: false`.
+ * `assignTests` applies the profile's rules (State topics, the Statistics
+ * default and the Regional second Individual), the same as Quick print.
+ */
+export function combineImportedSources(
+  sources,
+  { catalog = TEST_CATALOG, divisionScheme = "state", assignTests = true } = {},
+) {
+  const parsed = mergeParsedSources(sources, { catalog, divisionScheme });
+  const isRoster = (record) => (record.source?.format ?? null) === "roster";
+  const rosterRecords = parsed.records.filter(isRoster);
+  const otherRecords = parsed.records.filter((record) => !isRoster(record));
+  const warnings = [...parsed.warnings];
+  const mergedRoster = mergeSameStudentLines(rosterRecords, divisionScheme, warnings, { assignTests });
+  return { ...parsed, records: [...mergedRoster, ...otherRecords], warnings };
 }

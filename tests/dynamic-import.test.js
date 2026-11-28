@@ -263,8 +263,9 @@ test("Regional sample template lists Events and Previous Year IDs", () => {
   assert.deepEqual(parsed.warnings, []);
   assert.equal(parsed.records.length, 3);
   assert.equal(parsed.records[0].previousIds, "123400220");
-  assert.equal(parsed.records[0].events, "Algebra II Individual; Geometry Open");
-  assert.equal(parsed.records[1].events, "Calculus Individual; Statistics Individual; Calculus Open");
+  assert.equal(parsed.records[0].events, "Algebra II Individual");
+  assert.equal(parsed.records[1].events, "Calculus Individual; Statistics Individual");
+  assert.deepEqual(parsed.records[1].registeredIds, ["123400550", "123400560"]);
   assert.equal(parsed.records[2].stateId, "123400660");
   assert.equal(parsed.records[2].previousIds, "123400440");
 });

@@ -4,7 +4,7 @@ import {
   applyBulkTest, tickRange, stateSheetGaps, nameKey, regionalSecond, regionalSecondClash,
   STATE_TEST_BY_ID, STATE_ROUNDS, TOPIC_BLANK, stateTopic, topicGroupLabel,
 } from "./presets.js";
-import { downloadScantronPdf } from "./pdf.js";
+import { downloadScantronPdf, describeCutText } from "./pdf.js";
 import { extractPdfText } from "./pdf-import.js";
 
 const $ = (id) => document.getElementById(id);
@@ -202,6 +202,15 @@ function render() {
         tick.addEventListener("change", () => { r.noSecond = !tick.checked; render(); });
         lab.append(tick, ` Also ${second.name}`);
         test.append(lab);
+        if (!r.noSecond) {
+          // Teams are per division: the second sheet's team digit is set on its own.
+          const team = document.createElement("select"); team.className = "secondteam";
+          team.setAttribute("aria-label", `Team for ${r.name}'s ${second.name} sheet`);
+          [["0", "No Team"], ["1", "Team 1"], ["2", "Team 2"]].forEach(([v, t]) => team.append(new Option(t, v)));
+          team.value = ["1", "2"].includes(String(r.secondTeam)) ? String(r.secondTeam) : "0";
+          team.addEventListener("change", () => { r.secondTeam = team.value; render(); });
+          lab.append(" ", team);
+        }
       }
       const mine = opens.filter((o) => (r.opens ?? []).includes(o.key));
       if (mine.length) {
@@ -482,8 +491,9 @@ async function makePdf() {
   const date = p.testDate ?? [now.getFullYear(), now.getMonth() + 1, now.getDate()].map((n) => String(n).padStart(2, "0")).join("-");
   try {
     setStatus("Making the PDF...");
-    await downloadScantronPdf({ jobs, filename: `${safe}-${p.filenamePrefix}-${date}.pdf` });
-    setStatus(`Done: ${jobs.length} pages, in pile order. Print one page first to check it.`);
+    const doc = await downloadScantronPdf({ jobs, filename: `${safe}-${p.filenamePrefix}-${date}.pdf` });
+    const cutNote = describeCutText(doc?.famatCutText);
+    setStatus(`Done: ${jobs.length} pages, in pile order. Print one page first to check it.${cutNote ? ` ${cutNote}` : ""}`);
   } catch (err) {
     setStatus(`Could not make the PDF: ${err.message}`);
   }

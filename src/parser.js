@@ -30,6 +30,7 @@ export const OPTIONAL_HEADERS = Object.freeze([
   "optional_6_test",
   "events",
   "previous_ids",
+  "registered_ids",
 ]);
 
 const SUPPORTED_HEADERS = new Set([...REQUIRED_HEADERS, ...OPTIONAL_HEADERS]);
@@ -112,6 +113,13 @@ const HEADER_ALIASES = Object.freeze({
   scantrons: "events",
   tests_to_print: "events",
   events_to_print: "events",
+  other_ids: "registered_ids",
+  other_id: "registered_ids",
+  other_registered_ids: "registered_ids",
+  other_registered_id: "registered_ids",
+  registered_ids: "registered_ids",
+  also_registered_ids: "registered_ids",
+  other_division_ids: "registered_ids",
   previous_id: "previous_ids",
   previous_ids: "previous_ids",
   previous_year_id: "previous_ids",
@@ -362,6 +370,12 @@ export function parseDelimitedRegistration(
       optional6Test: rowObject.optional_6_test ?? "",
       events: rowObject.events ?? "",
       previousIds: rowObject.previous_ids ?? "",
+      // This year's other famat.org IDs (another division the school registered
+      // the student in); a Regional second Individual prints on one of these.
+      ...(rowObject.registered_ids
+        ? { registeredIds: [...new Set([compactSpacedId(rowObject.state_id),
+          ...String(rowObject.registered_ids).split(/[;,\s]+/).map(compactSpacedId)])].filter((x) => /^\d{9}$/.test(x)) }
+        : {}),
       team1Id: null,
       team2Id: null,
       source: {
@@ -508,6 +522,27 @@ function extractTrailingIds(line) {
     noTeamId: digits,
     completeVariants: false,
   };
+}
+
+function schoolKey(name) {
+  return collapseWhitespace(name).toLocaleLowerCase();
+}
+
+/**
+ * Should a name-only line be joined to the next line? Only when the next line
+ * looks like its continuation: it has no name of its own (just a division and
+ * IDs), the name above ends mid-way ("Smith," or "Smith-"), or the next line's
+ * words read as the rest of a name rather than a new "Last, First".
+ */
+function continuesPendingName(pendingRaw, line) {
+  const ids = extractTrailingIds(line);
+  if (!ids) return true;
+  const divisionMatch = ids.prefix.match(DIVISION_AT_END);
+  const ownName = collapseWhitespace(divisionMatch ? ids.prefix.slice(0, divisionMatch.index) : ids.prefix);
+  if (!/\p{L}/u.test(ownName)) return true;
+  const pending = collapseWhitespace(pendingRaw);
+  if (/[,-]$/.test(pending)) return true;
+  return !ownName.includes(",") && !/,\s*\S/.test(pending);
 }
 
 function rosterHeader(line) {
@@ -672,6 +707,9 @@ export function mergeSameStudentLines(records, divisionScheme, warnings = [], { 
       ? group.find((r) => String(r.stateId)[7] === "6") : null;
     const keep = statsLine ?? group.reduce((best, r) => (divisionRank(String(r.stateId)[7]) > divisionRank(String(best.stateId)[7]) ? r : best));
     const record = { ...keep };
+    // Every ID famat.org issued this student (one per division they are
+    // registered in). A second Individual is printed only on one of these.
+    record.registeredIds = [...new Set(group.map((r) => String(r.stateId)).filter((x) => /^\d{9}$/.test(x)))];
     if (divisionScheme === "regional" && assignTests && group.length > 1) {
       // Registered in two divisions: both Individuals when the Sponsors' Guide
       // allows the pair (one is Statistics, Precalculus or Calculus); Derek, Nov 26, 2026.
@@ -693,6 +731,9 @@ export function mergeSameStudentLines(records, divisionScheme, warnings = [], { 
         const course = group.find((r) => String(r.stateId).slice(0, 8) === row.courseId.slice(0, 8)) ?? keep;
         Object.assign(record, {
           stateId: sheets[0].id,
+          // The course ID sets the topic levels (move up, never down), even when
+          // the Statistics ID is the one printed (same rule as Quick print).
+          courseId: row.courseId,
           team1Id: course.team1Id,
           team2Id: course.team2Id,
           individualTest: ind.id,
@@ -721,6 +762,7 @@ export function parseRosterText(
     catalog = TEST_CATALOG,
     inferIndividualFromDivision = true,
     divisionScheme = "state",
+    mergeStudents = true,
   } = {},
 ) {
   const lines = String(text ?? "").replace(/^\uFEFF/, "").split(/\r?\n/);
@@ -730,6 +772,8 @@ export function parseRosterText(
   let schoolName = null;
   let schoolCode = null;
   let pendingPrefix = null;
+  const headers = [];
+  let currentHeader = null;
 
   const flushPendingAsError = () => {
     if (!pendingPrefix) return;
@@ -753,24 +797,13 @@ export function parseRosterText(
     const header = rosterHeader(line);
     if (header) {
       flushPendingAsError();
-      if (schoolName && header.schoolName && schoolName !== header.schoolName) {
-        errors.push(
-          makeIssue("error", "CONFLICTING_ROSTER_SCHOOL", "Roster headers name different schools.", {
-            line: lineNumber,
-            raw: line,
-          }),
-        );
-      }
-      if (schoolCode && header.schoolCode && schoolCode !== header.schoolCode) {
-        errors.push(
-          makeIssue(
-            "error",
-            "CONFLICTING_ROSTER_SCHOOL_CODE",
-            "Roster headers contain different school codes.",
-            { line: lineNumber, raw: line },
-          ),
-        );
-      }
+      // A paste can hold more than one roster (a high school and its middle
+      // school). Each row keeps the school of the header above it; headers that
+      // differ only in capitals or spacing are the same school.
+      const same = headers.find((h) => schoolKey(h.schoolName) === schoolKey(header.schoolName)
+        && (!h.schoolCode || !header.schoolCode || h.schoolCode === header.schoolCode));
+      currentHeader = same ?? header;
+      if (!same) headers.push(header);
       schoolName = schoolName ?? header.schoolName ?? null;
       schoolCode = schoolCode ?? header.schoolCode ?? null;
       continue;
@@ -811,6 +844,19 @@ export function parseRosterText(
       continue;
     }
 
+    if (pendingPrefix && !continuesPendingName(pendingPrefix.raw, line)) {
+      // The line above had a name but no ID, and this line is a complete
+      // student of its own: skip the name-only line and say so.
+      warnings.push(
+        makeIssue(
+          "warning",
+          "NAME_WITHOUT_ID_SKIPPED",
+          `Skipped "${pendingPrefix.raw}" because it has no 9-digit ID. Add that student by hand if they are competing.`,
+          { line: pendingPrefix.line, raw: pendingPrefix.raw },
+        ),
+      );
+      pendingPrefix = null;
+    }
     const sourceLine = pendingPrefix?.line ?? lineNumber;
     const combined = pendingPrefix ? `${pendingPrefix.raw} ${line}` : line;
     pendingPrefix = null;
@@ -823,11 +869,33 @@ export function parseRosterText(
       inferIndividualFromDivision,
       divisionScheme,
     );
-    if (parsed?.record) records.push(parsed.record);
+    if (parsed?.record) {
+      if (currentHeader) {
+        parsed.record.rosterSchoolName = currentHeader.schoolName ?? "";
+        parsed.record.rosterSchoolCode = currentHeader.schoolCode ?? "";
+      }
+      records.push(parsed.record);
+    }
   }
 
   flushPendingAsError();
-  records = mergeSameStudentLines(records, divisionScheme, warnings, { assignTests: inferIndividualFromDivision });
+  if (headers.length > 1) {
+    // More than one school in the paste: each sheet prints its own roster's school.
+    for (const record of records) {
+      if (record.rosterSchoolName) record.schoolName = record.rosterSchoolName;
+      if (record.rosterSchoolCode) record.schoolCode = record.rosterSchoolCode;
+    }
+    warnings.push(
+      makeIssue(
+        "warning",
+        "SEVERAL_ROSTER_SCHOOLS",
+        `This roster has ${headers.length} schools (${headers.map((h) => h.schoolName).join("; ")}). Each sheet prints the school named above its student.`,
+      ),
+    );
+  }
+  if (mergeStudents) {
+    records = mergeSameStudentLines(records, divisionScheme, warnings, { assignTests: inferIndividualFromDivision });
+  }
 
   if (!schoolName) {
     warnings.push(
@@ -871,18 +939,19 @@ export function parseRegistrationInput(
     requiredHeaders = REQUIRED_HEADERS,
     inferIndividualFromDivision = true,
     divisionScheme = "state",
+    mergeStudents = true,
   } = {},
 ) {
   const input = String(text ?? "");
   if (format === "roster") {
-    return parseRosterText(input, { catalog, inferIndividualFromDivision, divisionScheme });
+    return parseRosterText(input, { catalog, inferIndividualFromDivision, divisionScheme, mergeStudents });
   }
   if (format === "csv") return parseDelimitedRegistration(input, { delimiter: ",", requiredHeaders });
   if (format === "tsv") return parseDelimitedRegistration(input, { delimiter: "\t", requiredHeaders });
   if (format !== "auto") throw new TypeError(`Unsupported input format "${format}".`);
 
   if (/^\s*Roster\s*:/im.test(input)) {
-    return parseRosterText(input, { catalog, inferIndividualFromDivision, divisionScheme });
+    return parseRosterText(input, { catalog, inferIndividualFromDivision, divisionScheme, mergeStudents });
   }
   const firstNonblank = input.split(/\r?\n/).find((line) => line.trim()) ?? "";
   const inferredDelimiter = delimiter ?? (firstNonblank.includes("\t") ? "\t" : ",");

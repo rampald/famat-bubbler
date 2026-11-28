@@ -266,6 +266,7 @@ test("a permitted second Individual receives the correct division ID and preserv
     records: [
       registration({
         stateId: "123400112",
+        registeredIds: ["123400162"],
         eligibilityBasis: "Algebra I",
         division: "Algebra I",
         optional1Test: "Statistics Individual",
@@ -370,6 +371,7 @@ test("Statistics IDs follow chart note ** and the retained course switch stays o
     records: [
       registration({
         stateId: "123400160",
+        registeredIds: ["123400120"],
         division: "Statistics",
         events: "Statistics Individual; Geometry Individual",
       }),

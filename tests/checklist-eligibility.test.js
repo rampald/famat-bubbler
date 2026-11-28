@@ -136,9 +136,12 @@ test("an Events list prints exactly the listed tests; a blank list pre-checks th
 });
 
 test("two Regional Individuals follow note ****, keep the team digit, and warn on the same round", () => {
-  const pair = regional([student({ stateId: "123400141", events: "Precalculus Individual; Statistics Individual" })]);
+  const pair = regional([student({ stateId: "123400141", registeredIds: ["123400161"], events: "Precalculus Individual; Statistics Individual" })]);
   assert.equal(pair.ok, true);
   assert.deepEqual(pair.jobs.map(({ stateId }) => stateId), ["123400141", "123400161"]);
+  // Astra review (Nov 27, 2026): no second Individual without that registration, and no made-up ID.
+  const unregistered = regional([student({ stateId: "123400141", events: "Precalculus Individual; Statistics Individual" })]);
+  assert.ok(unregistered.errors.some(({ code }) => code === "SECOND_INDIVIDUAL_NOT_REGISTERED"));
   assert.ok(pair.warnings.some(({ code }) => code === "SAME_ROUND_INDIVIDUALS"));
   assert.deepEqual(sameRoundIndividualPairs(["calculus", "statistics"]), []);
 
@@ -179,8 +182,9 @@ test("State: chart columns, Chi digit 9, Statistics for everyone, one Individual
       }),
     ],
   });
-  assert.equal(twoRoundOne.ok, true);
-  assert.ok(twoRoundOne.warnings.some(({ code }) => code === "SESSION_DUPLICATE"));
+  // Astra review (Nov 27, 2026): two tests in one State round block printing.
+  assert.equal(twoRoundOne.ok, false);
+  assert.ok(twoRoundOne.errors.some(({ code }) => code === "SESSION_DUPLICATE"));
 
   const statisticsInstead = buildPacket({
     schoolName: SCHOOL,

@@ -14,11 +14,13 @@ import {
   eligibilityForRecord,
   importedListingWarnings,
   initialTestReferences,
+  registeredIdForTest,
+  registeredIdsFor,
   validateStateId,
 } from "./model.js";
-import { mergeParsedSources } from "./batch.js";
+import { combineImportedSources } from "./batch.js";
 import { parseRegistrationInput } from "./parser.js";
-import { generateScantronPdf } from "./pdf.js";
+import { generateScantronPdf, describeCutText } from "./pdf.js";
 import { extractPdfText } from "./pdf-import.js";
 import {
   DIVISION_LABELS,
@@ -317,7 +319,7 @@ function renderProfileChrome() {
           ? "No event or packet assumptions are loaded. Create the event choices and reviewed three-digit codes for this competition. "
         : isNational
           ? "No National answer-sheet packet or current three-digit scorer-code list was found. The 2027 event list is loaded only as an editable starting template. "
-          : "The State packet’s five Individual divisions, two topic rounds, ID digits, and 25 scorer mappings are loaded. ",
+          : `The State packet’s five Individual divisions, two topic rounds, ID digits, and ${state.catalog.filter((test) => test.active !== false && test.producesScantron !== false).length} scorer mappings are loaded. `,
     ),
     createElement("strong", {
       text: isRegional
@@ -819,6 +821,34 @@ function createTestOption(record, test, availability, checked) {
   return item;
 }
 
+const DIFFICULTY_RANK = Object.freeze({ chi: 0, theta: 1, alpha: 2, mu: 3, statistics: 4, open: 5 });
+
+/** Easiest to hardest (Chi, Theta, Alpha, Mu, Statistics), Open last; ties keep catalog order. */
+function sortByDifficulty(tests) {
+  const rank = (test) => DIFFICULTY_RANK[test.division] ?? 4.5;
+  return tests
+    .map((test, index) => ({ test, index }))
+    .sort((a, b) => rank(a.test) - rank(b.test) || a.index - b.index)
+    .map(({ test }) => test);
+}
+
+/** Regional: once one Individual is checked, another needs its own registered ID. */
+function regionalSecondIndividualAvailability(record, test, selected, availability) {
+  if (!availability.allowed) return availability;
+  const checkedIndividuals = [...selected]
+    .map((reference) => testFromReference(reference))
+    .filter((candidate) => candidate && candidate.group === TEST_GROUPS.INDIVIDUAL);
+  if (checkedIndividuals.length === 0) return availability;
+  if (registeredIdForTest(registeredIdsFor(record), test)) return availability;
+  return {
+    ...availability,
+    allowed: false,
+    conditional: false,
+    code: "SECOND_INDIVIDUAL_NOT_REGISTERED",
+    reason: `Not registered for ${test.name}. A second Individual needs its own famat.org ID: import the roster, or add an Other Registered IDs column.`,
+  };
+}
+
 function createTestPicker(record, recordIndex) {
   const eligibility = recordEligibility(record);
   const selected = new Set(recordTests(record));
@@ -845,18 +875,28 @@ function createTestPicker(record, recordIndex) {
   if (note) panel.append(createElement("p", { className: "test-picker-note", text: note }));
 
   const tests = pickerTests();
+  const profileId = activeProfile().id;
   const known = new Set();
   for (const group of PICKER_GROUP_ORDER) {
-    const groupList = tests.filter((test) => test.group === group);
-    if (groupList.length === 0) continue;
+    let groupList = tests.filter((test) => test.group === group);
+    // Every test of the catalog counts as known, so a hidden one is not listed as unknown.
+    groupList.forEach((test) => known.add(test.id));
+    if (profileId === "state") groupList = sortByDifficulty(groupList);
+    const options = [];
+    for (const test of groupList) {
+      const checked = selected.has(test.id);
+      let availability = testAvailability(test, eligibility);
+      if (profileId === "regional" && group === TEST_GROUPS.INDIVIDUAL && !checked) {
+        availability = regionalSecondIndividualAvailability(record, test, selected, availability);
+      }
+      // State shows only the tests this student may take, plus any already checked.
+      if (profileId === "state" && !availability.allowed && !checked) continue;
+      options.push(createTestOption(record, test, availability, checked));
+    }
+    if (options.length === 0) continue;
     const fieldset = createElement("fieldset", { className: "test-picker-group" });
     fieldset.append(createElement("legend", { text: groupHeading(group) }));
-    for (const test of groupList) {
-      known.add(test.id);
-      fieldset.append(
-        createTestOption(record, test, testAvailability(test, eligibility), selected.has(test.id)),
-      );
-    }
+    fieldset.append(...options);
     panel.append(fieldset);
   }
 
@@ -1390,6 +1430,7 @@ async function parseSelectedFile(
         requiredHeaders,
         inferIndividualFromDivision,
         divisionScheme,
+        mergeStudents: false,
       }),
     };
   }
@@ -1403,6 +1444,7 @@ async function parseSelectedFile(
       requiredHeaders,
       inferIndividualFromDivision,
       divisionScheme,
+      mergeStudents: false,
     }),
   };
 }
@@ -1427,6 +1469,7 @@ async function readSelectedInputs(catalog, requiredHeaders, inferIndividualFromD
         requiredHeaders,
         inferIndividualFromDivision,
         divisionScheme,
+        mergeStudents: false,
       }),
     });
   }
@@ -1467,12 +1510,16 @@ async function importRegistrations() {
   dom.importButton.textContent = "Reading registrations…";
   updateBusyControls();
   try {
-    const sources = await readSelectedInputs(operationCatalog, requiredHeaders, false, divisionScheme);
+    // Use the competition's own rules (State topics, the Statistics default and
+    // the Regional second Individual), the same as Quick print; famat.org lines
+    // for one student are merged across every file and the pasted rows.
+    const assignTests = operationProfile.inferIndividualFromDivision !== false;
+    const sources = await readSelectedInputs(operationCatalog, requiredHeaders, assignTests, divisionScheme);
     if (state.sessionRevision !== operationRevision || state.profileId !== operationProfileId) {
       announce("Import result ignored because the session changed while files were being read.");
       return;
     }
-    const parsed = mergeParsedSources(sources, { catalog: operationCatalog, divisionScheme });
+    const parsed = combineImportedSources(sources, { catalog: operationCatalog, divisionScheme, assignTests });
     const warnings = [...parsed.warnings];
     for (const record of parsed.records) {
       for (const issue of importedListingWarnings(record, operationCatalog)) {
@@ -2260,7 +2307,8 @@ async function generatePdf() {
       .slice(0, 60);
     const yearSuffix = profile.year ? `-${profile.year}` : "";
     doc.save(`${profile.filenamePrefix}-${safeEvent || "Event"}-${safeSchool || "School"}${yearSuffix}.pdf`);
-    dom.generationStatus.textContent = `Downloaded ${packet.jobs.length} pages. Print single-sided at Actual size (100%).`;
+    const cutNote = describeCutText(doc.famatCutText);
+    dom.generationStatus.textContent = `Downloaded ${packet.jobs.length} pages. Print single-sided at Actual size (100%).${cutNote ? ` ${cutNote}` : ""}`;
   } catch (error) {
     console.error(error);
     dom.generationStatus.textContent = `PDF generation failed: ${error instanceof Error ? error.message : "Unknown error"}`;
@@ -2368,9 +2416,31 @@ dom.studentsBody.addEventListener("change", (event) => {
     const reference = toggle.dataset.testToggle;
     const tests = recordTests(record);
     if (toggle.checked) {
-      if (!tests.includes(reference)) tests.push(reference);
+      if (activeProfile().id === "state") {
+        // State: one Individual and one test per round, so checking one replaces the other.
+        const group = testFromReference(reference)?.group;
+        if ([TEST_GROUPS.INDIVIDUAL, TEST_GROUPS.ROUND_1, TEST_GROUPS.ROUND_2, TEST_GROUPS.ROUND_3].includes(group)) {
+          record.tests = tests.filter(
+            (value) => value === reference || testFromReference(value)?.group !== group,
+          );
+        }
+      }
+      const current = recordTests(record);
+      if (!current.includes(reference)) current.push(reference);
     } else {
       record.tests = tests.filter((value) => value !== reference);
+    }
+    // State unchecks the other test in the group, and Regional changes which
+    // second Individuals are open, so redraw this row's menu in place.
+    if (["state", "regional"].includes(activeProfile().id)) {
+      const picker = toggle.closest("details.test-picker");
+      const recordIndex = state.records.indexOf(record);
+      if (picker && recordIndex >= 0) {
+        const fresh = createTestPicker(record, recordIndex);
+        fresh.open = picker.open;
+        picker.replaceWith(fresh);
+        fresh.querySelector(`#${CSS.escape(toggle.id)}`)?.focus();
+      }
     }
     render({ table: false });
     return;

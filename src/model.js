@@ -566,13 +566,27 @@ export function defaultIndividualForEligibility(eligibility, catalog = TEST_CATA
   return matches.length === 1 ? matches[0] : null;
 }
 
+/**
+ * The ID that sets a State student's levels. A student famat.org registered in
+ * Statistics and a course (Calculus, say) prints the Statistics ID, but the
+ * course still sets the topic levels (move up, never down), as on Quick print.
+ */
+export function eligibilityIdForRecord(record, stateId, scheme) {
+  const course = String(record?.courseId ?? "").replace(/\s+/g, "");
+  const id = String(stateId ?? "");
+  if (scheme === "state" && /^\d{9}$/.test(course) && /^\d{9}$/.test(id) && course.slice(0, 7) === id.slice(0, 7)) {
+    return `${course.slice(0, 8)}${id[8]}`;
+  }
+  return id;
+}
+
 /** Division eligibility for one record under a profile. */
 export function eligibilityForRecord(record, profile = CONVENTION_PROFILES.state) {
   const scheme = activeProfileId(profile);
   const idValidation = validateStateId(record?.stateId, { profile });
   return evaluateDivisionEligibility({
     profile: scheme,
-    currentId: idValidation.valid ? idValidation.normalized : "",
+    currentId: idValidation.valid ? eligibilityIdForRecord(record, idValidation.normalized, scheme) : "",
     previousIds: record?.previousIds ?? "",
     division: scheme === "national" ? normalizeDivision(record?.division) : null,
   });
@@ -712,6 +726,20 @@ export function importedListingWarnings(record, catalog) {
 }
 
 const UPPER_DIVISIONS_FOR_TWO_INDIVIDUALS = Object.freeze(["statistics", "precalculus", "calculus"]);
+
+/** This year's famat.org IDs for a record: its own ID plus any other registrations. */
+export function registeredIdsFor(record, stateId = record?.stateId) {
+  const own = String(stateId ?? "").replace(/\s+/g, "");
+  const others = Array.isArray(record?.registeredIds) ? record.registeredIds : [];
+  return [...new Set([own, ...others.map((x) => String(x ?? "").replace(/\s+/g, ""))])]
+    .filter((x) => /^\d{9}$/.test(x) && x.slice(0, 7) === own.slice(0, 7));
+}
+
+/** The registered ID whose division digit matches a Regional Individual, if any. */
+export function registeredIdForTest(registeredIds, test) {
+  const digit = test?.idDigit ?? REGIONAL_DIVISION_DIGITS[test?.division] ?? null;
+  return digit ? registeredIds.find((x) => x[7] === String(digit)) ?? null : null;
+}
 
 /**
  * Validate normalized parser records and expand them into one PDF job for each
@@ -896,9 +924,10 @@ export function buildPacket(input = {}) {
         ),
       );
     }
+    const eligibilityId = idValidation.valid ? eligibilityIdForRecord(record, stateId, scheme) : "";
     const eligibility = evaluateDivisionEligibility({
       profile: scheme,
-      currentId: idValidation.valid ? stateId : "",
+      currentId: eligibilityId,
       previousIds: record.previousIds ?? "",
       division: scheme === "national" ? columnDivision : null,
     });
@@ -907,7 +936,8 @@ export function buildPacket(input = {}) {
       (scheme === "regional" || scheme === "state") &&
       columnDivision &&
       division &&
-      columnDivision !== division
+      columnDivision !== division &&
+      eligibilityId === stateId
     ) {
       warnings.push(
         makeIssue(
@@ -1031,6 +1061,20 @@ export function buildPacket(input = {}) {
           ),
         );
       }
+      if (individuals.length === 2) {
+        const registered = registeredIdsFor(record, stateId);
+        const unregistered = individuals.filter((test) => !registeredIdForTest(registered, test));
+        if (unregistered.length) {
+          errors.push(
+            makeIssue(
+              "error",
+              "SECOND_INDIVIDUAL_NOT_REGISTERED",
+              `${unregistered.map((test) => test.name).join(" and ")}: famat.org has no registration for this student in that division, so it cannot be a second Individual. Uncheck it, or import the famat.org roster (or add the ID in an "Other Registered IDs" column).`,
+              { ...details, field: "tests", testIds: unregistered.map((test) => test.id) },
+            ),
+          );
+        }
+      }
       for (const pair of sameRoundIndividualPairs(individuals.map((test) => test.division))) {
         warnings.push(
           makeIssue(
@@ -1057,13 +1101,33 @@ export function buildPacket(input = {}) {
       for (const group of [TEST_GROUPS.ROUND_1, TEST_GROUPS.ROUND_2, TEST_GROUPS.ROUND_3]) {
         const inGroup = selectedTests.filter((test) => test.group === group);
         if (inGroup.length > 1) {
-          warnings.push(
+          // State: a student sits one topic test per round, so two block printing.
+          (scheme === "state" ? errors : warnings).push(
             makeIssue(
-              "warning",
+              scheme === "state" ? "error" : "warning",
               "SESSION_DUPLICATE",
-              `${inGroup.map((test) => test.name).join(" and ")} are in the same round; a student can take only one of them.`,
+              `${inGroup.map((test) => test.name).join(" and ")} are in the same round; a student can take only one of them${scheme === "state" ? ". Uncheck one" : ""}.`,
               { ...details, field: "tests", testIds: inGroup.map((test) => test.id) },
             ),
+          );
+        }
+      }
+      if (scheme === "state" && selectedTests.length > 0) {
+        if (individuals.length === 0) {
+          warnings.push(
+            makeIssue("warning", "STATE_INDIVIDUAL_MISSING",
+              "No Individual test is checked. A State student normally takes one Individual and one topic test in each round.",
+              { ...details, field: "tests" }),
+          );
+        }
+        const missing = [TEST_GROUPS.ROUND_1, TEST_GROUPS.ROUND_2]
+          .filter((group) => !selectedTests.some((test) => test.group === group))
+          .map((group) => (group === TEST_GROUPS.ROUND_1 ? "Round 1" : "Round 2"));
+        if (missing.length) {
+          warnings.push(
+            makeIssue("warning", "STATE_ROUND_MISSING",
+              `No ${missing.join(" or ")} topic test is checked. A State student normally takes one topic test in each round.`,
+              { ...details, field: "tests", rounds: missing }),
           );
         }
       }
@@ -1091,8 +1155,13 @@ export function buildPacket(input = {}) {
     students.push(student);
 
     if (student.valid) {
+      const registered = scheme === "regional" ? registeredIdsFor(record, stateId) : [];
       for (const test of selectedTests) {
-        const jobStateId = idForTest(stateId, test, scheme);
+        // Regional: an Individual in another division the student is registered
+        // in prints that registration's own ID (its own team digit).
+        const ownId = scheme === "regional" && isIndividualTest(test) && idForTest(stateId, test, scheme) !== stateId
+          ? registeredIdForTest(registered, test) : null;
+        const jobStateId = ownId ?? idForTest(stateId, test, scheme);
         candidateJobs.push({
           key: `${jobStateId}:${test.id}`,
           schoolName: recordSchoolValidation.normalized,

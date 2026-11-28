@@ -10,6 +10,7 @@ These files contain fictional example students only. Replace every sample value 
 - Put a comma-containing value in double quotation marks, such as `"Rivera, Ana"`.
 - `Student Name` and `Student ID` are the only required columns.
 - `Events` lists the tests to print, separated by semicolons, for example `"Precalculus Individual; Sample Open"`. Use the full event name or reviewed three-digit code shown in the program's event catalog. Leave it blank to print only the Individual for the division in the ID's 8th digit.
+- `Other Registered IDs` (Regional and Invitational) is optional: the student's other famat.org IDs for this competition, separated by semicolons. A second Individual prints only when the student is registered in that division, and it uses that ID.
 - `Previous Year IDs` (Regional and State) is optional: the student's FAMAT ID or IDs from last year, separated by semicolons. They remove divisions the Sponsors' Guide no longer allows.
 - `School` and `School Code` are optional when the app supplies one default full school name. Include `School` for a multi-school file. If `School Code` is supplied, it must contain four digits and match the first four digits of the Student ID.
 - Multiple files may be selected together. Rows with the same Student ID are merged only when their populated values agree; contradictions block generation.
@@ -56,7 +57,7 @@ School,School Code,Student Name,Student ID,Previous Year IDs,Events
 
 A student may take at most two Individuals, and one must be Statistics, Precalculus, or Calculus. A second Individual prints with its own division digit and keeps the team digit.
 
-The six Individual event rows are preloaded, but their organizer codes begin blank. No Open events are assumed. Enter the tournament name, supply the host's reviewed three-digit Individual codes, and add the actual Open or other written events (such as `Geometry Open`, `Calculus Open`, and `Statistics Open` in `regional-invitational-template.csv`) with their eligible divisions and reviewed codes before importing. Speed and Mental must remain non-scantron events. All example Regional names and codes are fictional placeholders.
+The six Individual event rows are preloaded, but their organizer codes begin blank. No Open events are assumed. Enter the tournament name, supply the host's reviewed three-digit Individual codes, and add the actual Open or other written events (such as a `Geometry Open` or `Calculus Open`) with their eligible divisions and reviewed codes before importing a file that lists them. `regional-invitational-template.csv` lists Individuals only, so it imports as is; Morgan Rivera's second Individual (Statistics) comes from the `Other Registered IDs` column. Speed and Mental must remain non-scantron events. All example Regional names and codes are fictional placeholders.
 
 ## Custom competition
 

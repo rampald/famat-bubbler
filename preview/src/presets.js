@@ -295,7 +295,8 @@ export function regionalSecondClash(row) {
  * Every Regional sheet for a row: the first Individual, the second one when the
  * student is registered in both divisions (unless the sponsor turned it off),
  * then one sheet per Open test the sponsor gave them. Each Individual uses its
- * division's registered ID; an Open sheet uses the first Individual's ID.
+ * division's registered ID (the second with its own team digit, row.secondTeam);
+ * an Open sheet uses the first Individual's ID.
  * `opens` is [{ key, name, code }], typed by the sponsor for this competition.
  */
 export function regionalSheets(row, codes = {}, opens = []) {
@@ -305,7 +306,12 @@ export function regionalSheets(row, codes = {}, opens = []) {
   const second = regionalSecond(row);
   if (second && !row.noSecond) {
     const code = String(codes[second.name] ?? "").trim();
-    sheets.push({ kind: "individual", testName: second.name, testCode: /^\d{3}$/.test(code) ? code : "", id: idForTest(row.id, second, "regional") });
+    // A team is per division, so the second sheet has its own team digit
+    // (No Team unless the sponsor picks Team 1 or 2 for it).
+    const team = REGIONAL_TEAM_DIGITS.includes(String(row.secondTeam)) ? String(row.secondTeam) : "0";
+    const secondId = idForTest(row.id, second, "regional");
+    sheets.push({ kind: "individual", testName: second.name, testCode: /^\d{3}$/.test(code) ? code : "",
+      id: /^\d{9}$/.test(secondId) ? secondId.slice(0, 8) + team : secondId });
   }
   opens.forEach((o, i) => {
     if (!(row.opens ?? []).includes(o.key)) return;
@@ -348,7 +354,7 @@ export const PRESETS = Object.freeze({
     lastYearSummary: "Optional: last year's roster (applies the Sponsors' Guide previous-year rules)",
     lastYearHint: "Students may not test down from last year's level or repeat a one-year division. Paste last year's roster and the app matches names to apply those rules. Works for regionals, invitationals and statewides.",
     printNote:
-      "The packet is grouped by test (Algebra I first, Statistics last, then each Open test). Each Individual sheet's ID uses that test's division digit and keeps the student's team digit; an Open sheet uses the ID on the student's first Individual.",
+      "The packet is grouped by test (Algebra I first, Statistics last, then each Open test). Each Individual sheet's ID uses that test's division digit; the first Individual keeps the student's team digit and a second Individual has its own (No Team unless you pick one); an Open sheet uses the ID on the student's first Individual.",
   }),
   "state-convention": Object.freeze({
     id: "state-convention",
@@ -463,7 +469,7 @@ const DUP_NOTE = "Another student has the same name, so last year's roster was n
  */
 export function assignRow(preset, s, lastYear = new Map(), nameCounts = new Map()) {
   const keep = { srcKey: s.srcKey, typed: s.typed, off: s.off, sel: s.sel, also: [...(s.also ?? [])],
-    noSecond: s.noSecond, opens: s.opens ? [...s.opens] : undefined,
+    noSecond: s.noSecond, secondTeam: s.secondTeam, opens: s.opens ? [...s.opens] : undefined,
     topics: s.topics ? { ...s.topics } : undefined };
   const previousIds = [...(s.previousIds ?? [])];
   const plain = { ...keep, name: s.name ?? "", id: s.id ?? "", previousIds, prevDigits: [],
@@ -520,7 +526,8 @@ export function mergeRoster(oldRows, students) {
     if (!o) return s;
     kept += 1;
     return { ...s, name: o.name, id: o.id, previousIds: o.previousIds ?? s.previousIds,
-      off: o.off, sel: o.sel, manualPile: o.manualPile, topics: o.topics };
+      off: o.off, sel: o.sel, manualPile: o.manualPile, topics: o.topics,
+      noSecond: o.noSecond, secondTeam: o.secondTeam, opens: o.opens ? [...o.opens] : undefined };
   });
   const typed = oldRows.filter((r) => !r.srcKey && r.typed);
   return { students: [...merged, ...typed], added: students.length - kept, kept };

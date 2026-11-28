@@ -230,38 +230,74 @@ function drawDigitGrid(doc, geometry) {
   }
 }
 
-function drawFittedText(doc, value, position, label) {
+/**
+ * Draw one text field, shrinking it to fit. Text that would need a size below
+ * the minimum is printed at the minimum size and cut with an ellipsis, so one
+ * long name never stops the whole packet; the caller reports what was cut.
+ * Returns true when the text was cut.
+ */
+function drawFittedText(doc, value, position) {
+  const text = String(value ?? "");
   doc.setFontSize(DEFAULT_TEXT_SIZE);
-  const naturalWidth =
-    typeof doc.getTextWidth === "function" ? Number(doc.getTextWidth(value)) : position.maxWidth;
-  const fittedSize =
+  const measure = (t) =>
+    typeof doc.getTextWidth === "function" ? Number(doc.getTextWidth(t)) : position.maxWidth;
+  const naturalWidth = measure(text);
+  let fittedSize =
     Number.isFinite(naturalWidth) && naturalWidth > position.maxWidth
       ? (DEFAULT_TEXT_SIZE * position.maxWidth) / naturalWidth
       : DEFAULT_TEXT_SIZE;
-
+  let printed = text;
+  let cut = false;
   if (fittedSize < MINIMUM_TEXT_SIZE) {
-    throw new RangeError(
-      `${label} is too long to fit the official answer-sheet field without becoming unreadable.`,
-    );
+    fittedSize = MINIMUM_TEXT_SIZE;
+    doc.setFontSize(MINIMUM_TEXT_SIZE);
+    let keep = text.length;
+    while (keep > 1 && measure(`${text.slice(0, keep).trimEnd()}\u2026`) > position.maxWidth) keep -= 1;
+    printed = `${text.slice(0, keep).trimEnd()}\u2026`;
+    cut = true;
   }
-
   doc.setFontSize(fittedSize);
-  doc.text(value, position.x, position.y);
+  doc.text(printed, position.x, position.y);
   doc.setFontSize(DEFAULT_TEXT_SIZE);
+  return cut;
 }
 
-function drawPage(doc, templateImage, job) {
+function drawPage(doc, templateImage, job, cutNotes = [], pageNumber = 1) {
   doc.addImage(templateImage, "PNG", 0, 0, PAGE_SIZE.width, PAGE_SIZE.height);
-  drawFittedText(doc, job.studentName, TEXT_POSITIONS.name, "Student name");
-  drawFittedText(doc, job.schoolName, TEXT_POSITIONS.school, "School name");
-  drawFittedText(
-    doc,
-    job.testCode === "" ? job.testName : formatTestLabel(job.testName, job.testCode),
-    TEXT_POSITIONS.test,
-    "Test name and code",
-  );
+  const testText = job.testCode === "" ? job.testName : formatTestLabel(job.testName, job.testCode);
+  const fields = [
+    ["student name", job.studentName, TEXT_POSITIONS.name],
+    ["school name", job.schoolName, TEXT_POSITIONS.school],
+    ["test name", testText, TEXT_POSITIONS.test],
+  ];
+  for (const [field, value, position] of fields) {
+    if (drawFittedText(doc, value, position)) {
+      cutNotes.push({ page: pageNumber, studentName: job.studentName, field, value: String(value ?? "") });
+    }
+  }
   drawDigitGrid(doc, getStudentIdGeometry(job.stateId));
   if (job.testCode !== "") drawDigitGrid(doc, getTestCodeGeometry(job.testCode));
+}
+
+/**
+ * Plain-English note for text that was too long and was cut, naming each row.
+ * Returns "" when nothing was cut.
+ */
+export function describeCutText(cutNotes = []) {
+  if (!cutNotes.length) return "";
+  const seen = new Set();
+  const items = [];
+  for (const note of cutNotes) {
+    const key = `${note.field}|${note.value}|${note.field === "school name" ? "" : note.studentName}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    items.push(note.field === "school name"
+      ? `the school name "${note.value}"`
+      : `${note.studentName}'s ${note.field} "${note.value}"`);
+  }
+  const shown = items.slice(0, 3).join("; ");
+  const more = items.length > 3 ? `; and ${items.length - 3} more` : "";
+  return `Too long to fit, so cut short on the sheet: ${shown}${more}. Shorten it and make the PDF again if needed.`;
 }
 
 /**
@@ -294,14 +330,16 @@ export async function generateScantronPdf({
   doc.setFont("helvetica");
   doc.setFontSize(12);
 
+  const cutNotes = [];
   normalizedJobs.forEach((job, index) => {
     // jsPDF creates the first page in its constructor. Add subsequent pages
     // immediately before drawing them; never append an unused trailing page.
     if (index > 0) {
       doc.addPage([PAGE_SIZE.width, PAGE_SIZE.height], "portrait");
     }
-    drawPage(doc, decodedTemplate, job);
+    drawPage(doc, decodedTemplate, job, cutNotes, index + 1);
   });
+  doc.famatCutText = cutNotes;
 
   return doc;
 }
