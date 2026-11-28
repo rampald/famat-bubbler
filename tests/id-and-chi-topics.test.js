@@ -40,14 +40,16 @@ test("changing the Individual keeps the issued ID and changes only the division 
   }
   const ivy = row(rs, "Ives, Ivy");
   ivy.pile = individual("theta").name;
-  assert.ok(stateSheets(ivy).every((s) => s.id[7] === "2" && s.id.slice(0, 7) === ivy.id.slice(0, 7)));
+  assert.ok(stateSheets(ivy).every((s) => s.id === ivy.id), "Statistics ID keeps its 6 on Theta");
+  ivy.pile = individual("mu").name;
+  assert.ok(stateSheets(ivy).every((s) => s.id === ivy.id), "and on Calculus");
   ivy.pile = individual("statistics").name;
   assert.ok(stateSheets(ivy).every((s) => s.id[7] === "6"), "back on Statistics: registered ID");
 });
 
 test("builder idForTest follows the test's division at State", () => {
-  assert.equal(idForTest("999900460", individual("mu"), "state"), "999900450");
-  assert.equal(idForTest("999900461", individual("alpha"), "state"), "999900441");
+  assert.equal(idForTest("999900460", individual("mu"), "state"), "999900460", "Statistics ID keeps its 6");
+  assert.equal(idForTest("999900441", individual("mu"), "state"), "999900451");
   assert.equal(idForTest("999900431", individual("theta"), "state"), "999900431", "Algebra II stays Theta 3");
   assert.equal(idForTest("999900451", individual("theta"), "state"), "999900421");
   assert.equal(idForTest("999900491", individual("chi"), "state"), "999900491");

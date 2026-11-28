@@ -512,9 +512,9 @@ export function idForTest(baseId, test, profile) {
   } else if (scheme === "state") {
     const digits = STATE_ID_DIGITS_BY_DIVISION[test.division] ?? [];
     // Keep the issued ID, but the division digit follows the test so the sheet
-    // sorts with its test (Derek, Nov 28, 2026). This holds for a Statistics ID too;
-    // Theta has two digits, so an ID from another division takes Geometry (2).
-    digit = digits.includes(id[7]) ? id[7] : digits[0] ?? null;
+    // sorts with its test (Derek, Nov 28, 2026). A Statistics ID keeps its 6 on
+    // any Individual (Derek, Nov 26 and Nov 28, 2026).
+    digit = id[7] === "6" ? "6" : digits.includes(id[7]) ? id[7] : digits[0] ?? null;
   }
   return digit ? `${id.slice(0, 7)}${digit}${id[8]}` : id;
 }
