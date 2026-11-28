@@ -511,9 +511,10 @@ export function idForTest(baseId, test, profile) {
     digit = test.idDigit ?? REGIONAL_DIVISION_DIGITS[test.division] ?? null;
   } else if (scheme === "state") {
     const digits = STATE_ID_DIGITS_BY_DIVISION[test.division] ?? [];
-    // A Statistics ID stays as registered on any Individual (Derek, Nov 26, 2026):
-    // never print an ID famat.org did not issue.
-    digit = id[7] === "6" ? "6" : digits.includes(id[7]) ? id[7] : digits.length === 1 ? digits[0] : null;
+    // Keep the issued ID, but the division digit follows the test so the sheet
+    // sorts with its test (Derek, Nov 28, 2026). This holds for a Statistics ID too;
+    // Theta has two digits, so an ID from another division takes Geometry (2).
+    digit = digits.includes(id[7]) ? id[7] : digits[0] ?? null;
   }
   return digit ? `${id.slice(0, 7)}${digit}${id[8]}` : id;
 }

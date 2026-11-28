@@ -159,7 +159,10 @@ export function assignState(id, previousDigits = [], also = []) {
   const topicOptions = Object.fromEntries(STATE_ROUNDS.map(({ group }) => [group,
     STATE_TEST_CATALOG.filter((t) => t.group === group && t.active !== false && testAvailability(t, ev).allowed)
       .sort(topicSort).map((t) => t.id)]));
-  const ownTopic = own === statistics || STATE_DIVISION_BY_DIGIT[digit] === "statistics" ? "open" : STATE_DIVISION_BY_DIGIT[digit];
+  // Chi has no topic tests yet, so a Chi student starts on Theta topics and may
+  // take any topic (Radleigh, Aug 10, 2025 email to the board).
+  const ownTopic = own === statistics || STATE_DIVISION_BY_DIGIT[digit] === "statistics" ? "open"
+    : STATE_DIVISION_BY_DIGIT[digit] === "chi" ? "theta" : STATE_DIVISION_BY_DIGIT[digit];
   const topicDefaults = Object.fromEntries(STATE_ROUNDS.map(({ group }) => {
     const opts = topicOptions[group].map((x) => STATE_TEST_BY_ID.get(x));
     const first = opts.find((t) => t.division === ownTopic) ?? opts.find((t) => t.division !== "open") ?? opts[0];

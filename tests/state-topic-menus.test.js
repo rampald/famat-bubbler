@@ -62,7 +62,9 @@ test("rounds start on the student's own division and print with that code", () =
   assert.equal(STATE_TEST_BY_ID.get(row(rs, "Fox, Fay").topicDefaults.round_1).division, "open");
   const eve = row(rs, "Ezra, Eve");
   eve.pile = "Calculus Individual";
-  assert.ok(stateSheets(eve).every((s) => s.id.slice(0, 8) === "99990056"), "Statistics-only on Calculus keeps the Statistics ID");
+  assert.ok(stateSheets(eve).every((s) => s.id.slice(0, 8) === "99990055"),
+    "Statistics-only on Calculus: issued ID, Calculus division digit (Derek, Nov 28)");
+  assert.ok(stateSheets(eve).every((s) => s.id[8] === row(rs, "Ezra, Eve").id[8]), "team digit as issued");
   const cam = row(rs, "Cole, Cam");
   assert.ok(stateSheets(cam).every((s) => s.id[7] === "4"), "no Statistics line: course ID");
 });
